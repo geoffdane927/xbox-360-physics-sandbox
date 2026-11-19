@@ -645,8 +645,7 @@ static void RenderFrame()
 
     float playerScale=(g_playerCount==1)?1.0f:((g_playerCount==2)?0.72f:0.48f);
     float renderDistance=120.0f*playerScale*g_qualityScale;
-    int detail=(int)(g_qualityScale*10.0f);
-    if(detail<5) detail=5;
+    int detail=(g_qualityScale>0.85f)?1:((g_qualityScale>0.70f)?2:3);
 
     g_device->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,
         D3DCOLOR_ARGB(255,16,22,32),1.0f,0);
