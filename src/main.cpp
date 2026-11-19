@@ -88,6 +88,7 @@ static Player g_players[PLAYER_LIMIT];
 static Block g_blocks[MAX_BLOCKS];
 static int g_blockCount = 0;
 static int g_playerCount = 1;
+static int g_activePlayers[PLAYER_LIMIT] = {0, 1, 2, 3};
 static bool g_editorMode = true;
 static bool g_showGrid = true;
 static DWORD g_lastTick = 0;
@@ -214,7 +215,7 @@ static void AddCube(const Vec3& center, float halfSize, DWORD color)
         AddLine(v[edges[e][0]], v[edges[e][1]], color);
 }
 
-static void BuildScene(float renderDistance)
+static void BuildScene(float renderDistance, const Vec3& cameraPosition)
 {
     g_vertexCount = 0;
     int gridRadius = (g_playerCount == 1) ? 12 : ((g_playerCount == 2) ? 8 : 5);
@@ -236,11 +237,13 @@ static void BuildScene(float renderDistance)
     for (int i = 0; i < g_blockCount; ++i)
     {
         const Block& block = g_blocks[i];
-        AddCube(block.position, block.halfSize, block.color);
+        float dx = block.position.x - cameraPosition.x;
+        float dy = block.position.y - cameraPosition.y;
+        float dz = block.position.z - cameraPosition.z;
+        if (dx*dx + dy*dy + dz*dz <= renderDistance*renderDistance)
+            AddCube(block.position, block.halfSize, block.color);
     }
 
-    // Keep the parameter explicit: later renderers can cull individual objects.
-    (void)renderDistance;
 }
 
 static D3DMATRIX MatrixIdentity()
@@ -263,9 +266,7 @@ static D3DMATRIX MatrixLookAtLH(const Vec3& eye, const Vec3& at, const Vec3& up)
     if (len < 0.0001f) len = 1.0f;
     x.x /= len; x.y /= len; x.z /= len;
 
-    Vec3 y(z.y*x.z-z.z*x.y, z.z*x.x-z.x*z.z, z.x*y.y-z.y*x.x);
-    // Correct cross product z x x.
-    y = Vec3(z.y*x.z-z.z*x.y, z.z*x.x-z.x*x.z, z.x*x.y-z.y*x.x);
+    Vec3 y(z.y*x.z-z.z*x.y, z.z*x.x-z.x*x.z, z.x*x.y-z.y*x.x);
 
     D3DMATRIX m;
     m._11=x.x; m._12=y.x; m._13=z.x; m._14=0;
@@ -483,7 +484,6 @@ static void RenderHud(int playerIndex, const Viewport& viewport)
     AddHudRect(hud, count, viewport.x + viewport.width - 22, viewport.y + 12,
                10, 10, D3DCOLOR_ARGB(255, 80 + playerIndex*35, 150, 235));
 
-    g_device->SetViewport(&(D3DVIEWPORT9){0});
     D3DVIEWPORT9 full;
     full.X = 0; full.Y = 0; full.Width = SCREEN_W; full.Height = SCREEN_H;
     full.MinZ = 0.0f; full.MaxZ = 1.0f;
@@ -500,7 +500,7 @@ static void RenderPlayerView(int playerIndex, const Viewport& viewport, float re
     Player& player = g_players[playerIndex];
     Camera& camera = player.camera;
 
-    BuildScene(renderDistance);
+    BuildScene(renderDistance, camera.position);
 
     Vec3 forward(sinf(camera.yaw)*cosf(camera.pitch),
                  sinf(camera.pitch),
@@ -548,8 +548,9 @@ static void RenderFrame()
 
     for (int i = 0; i < g_playerCount; ++i)
     {
+        int playerIndex = g_activePlayers[i];
         Viewport viewport = GetViewport(i, g_playerCount);
-        RenderPlayerView(i, viewport, renderDistance);
+        RenderPlayerView(playerIndex, viewport, renderDistance);
     }
 
     g_device->EndScene();
@@ -586,10 +587,12 @@ int main()
         {
             UpdateController(i);
             if (g_pads[i].connected)
-                ++connectedCount;
+                g_activePlayers[connectedCount++] = i;
         }
 
         // Controller 1 remains as a development viewport when no pad is connected.
+        if (connectedCount == 0)
+            g_activePlayers[0] = 0;
         g_playerCount = connectedCount > 0 ? connectedCount : 1;
 
         // Back is a global mode toggle. Only the first newly-pressed Back is handled.
@@ -602,14 +605,10 @@ int main()
             }
         }
 
-        int activeIndex = 0;
         for (int i = 0; i < PLAYER_LIMIT; ++i)
         {
             if (g_pads[i].connected)
-            {
                 UpdatePlayer(i, dt);
-                ++activeIndex;
-            }
         }
         if (connectedCount == 0)
             UpdatePlayer(0, dt);
