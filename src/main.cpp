@@ -6,16 +6,22 @@
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "xinput.lib")
 
-// BlockWorks 360 - controller, split-screen, and rendering foundation.
-// This is deliberately a small immediate-mode renderer, not the final engine.
+// BlockWorks 360 - basic playable graphics / collision test.
+// Upright characters use simple movement and gravity. There is no ragdoll yet.
 
 static const int SCREEN_W = 1280;
 static const int SCREEN_H = 720;
-static const int MAX_VERTICES = 8192;
-static const int MAX_BLOCKS = 128;
+static const int MAX_TRI_VERTICES = 24576;
+static const int MAX_LINE_VERTICES = 8192;
+static const int MAX_BLOCKS = 256;
 static const int PLAYER_LIMIT = 4;
 static const int INVENTORY_SLOTS = 8;
+static const DWORD FRAME_CAP_MS = 16; // 60 Hz ceiling; vertical sync is also enabled.
 static const float PI_F = 3.14159265358979323846f;
+static const float PLAYER_RADIUS = 0.32f;
+static const float PLAYER_HEIGHT = 1.75f;
+static const float EYE_HEIGHT = 1.55f;
+static const float GRAVITY = 18.0f;
 
 struct Vec3
 {
@@ -41,12 +47,14 @@ struct HudVertex
 
 static IDirect3D9* g_d3d = 0;
 static IDirect3DDevice9* g_device = 0;
-static Vertex g_vertices[MAX_VERTICES];
-static int g_vertexCount = 0;
+static Vertex g_triangles[MAX_TRI_VERTICES];
+static Vertex g_lines[MAX_LINE_VERTICES];
+static int g_triangleCount = 0;
+static int g_lineCount = 0;
 
 struct Camera
 {
-    Vec3 position;
+    Vec3 position; // In player mode this is the eye position.
     float yaw;
     float pitch;
 };
@@ -92,6 +100,8 @@ static int g_activePlayers[PLAYER_LIMIT] = {0, 1, 2, 3};
 static bool g_editorMode = true;
 static bool g_showGrid = true;
 static DWORD g_lastTick = 0;
+static float g_fpsAverage = 60.0f;
+static float g_qualityScale = 1.0f;
 
 static const DWORD g_itemColors[INVENTORY_SLOTS] =
 {
@@ -115,13 +125,12 @@ static float Clamp(float v, float lo, float hi)
 static float Deadzone(SHORT value, SHORT deadzone)
 {
     if (value > -deadzone && value < deadzone) return 0.0f;
-    float v = (float)value / 32767.0f;
-    return Clamp(v, -1.0f, 1.0f);
+    return Clamp((float)value / 32767.0f, -1.0f, 1.0f);
 }
 
 static void ResetPlayer(int index)
 {
-    g_players[index].camera.position = Vec3((index - 1.5f) * 1.2f, 1.7f, -8.0f);
+    g_players[index].camera.position = Vec3((index - 1.5f) * 1.2f, EYE_HEIGHT, -8.0f);
     g_players[index].camera.yaw = 0.0f;
     g_players[index].camera.pitch = 0.0f;
     g_players[index].verticalVelocity = 0.0f;
@@ -141,8 +150,10 @@ static void AddBlock(const Vec3& position, float halfSize, DWORD color)
 static void InitializeWorld()
 {
     g_blockCount = 0;
-    AddBlock(Vec3(0, 1, 4), 1.0f, g_itemColors[0]);
+    // A low obstacle and a small step make the collision test immediately visible.
+    AddBlock(Vec3(0, 0.5f, 4), 0.5f, g_itemColors[0]);
     AddBlock(Vec3(2.5f, 0.5f, 5), 0.5f, g_itemColors[1]);
+    AddBlock(Vec3(-2.0f, 1.0f, 5), 1.0f, g_itemColors[2]);
 }
 
 static void UpdateController(int index)
@@ -154,11 +165,8 @@ static void UpdateController(int index)
     ZeroMemory(&state, sizeof(state));
     DWORD result = XInputGetState(index, &state);
     pad.connected = (result == ERROR_SUCCESS);
-
-    if (pad.connected)
-        pad.current = state.Gamepad;
-    else
-        ZeroMemory(&pad.current, sizeof(pad.current));
+    if (pad.connected) pad.current = state.Gamepad;
+    else ZeroMemory(&pad.current, sizeof(pad.current));
 
     pad.lx = Deadzone(pad.current.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
     pad.ly = Deadzone(pad.current.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
@@ -179,94 +187,162 @@ static void UpdateController(int index)
     pad.pressedDpadRight = (now & XINPUT_GAMEPAD_DPAD_RIGHT) && !(old & XINPUT_GAMEPAD_DPAD_RIGHT);
 }
 
+// Axis-aligned character-vs-block collision. The player is an upright box/capsule
+// approximation; movement is resolved one axis at a time to slide along walls.
+static bool PlayerOverlapsBlock(float x, float feetY, float z, const Block& b)
+{
+    float minX = x - PLAYER_RADIUS;
+    float maxX = x + PLAYER_RADIUS;
+    float minY = feetY;
+    float maxY = feetY + PLAYER_HEIGHT;
+    float minZ = z - PLAYER_RADIUS;
+    float maxZ = z + PLAYER_RADIUS;
+
+    float bMinX = b.position.x - b.halfSize;
+    float bMaxX = b.position.x + b.halfSize;
+    float bMinY = b.position.y - b.halfSize;
+    float bMaxY = b.position.y + b.halfSize;
+    float bMinZ = b.position.z - b.halfSize;
+    float bMaxZ = b.position.z + b.halfSize;
+
+    return (maxX > bMinX && minX < bMaxX &&
+            maxY > bMinY && minY < bMaxY &&
+            maxZ > bMinZ && minZ < bMaxZ);
+}
+
+static bool CollidesAt(float x, float feetY, float z)
+{
+    if (feetY < -0.001f) return true; // Flat world floor.
+    for (int i = 0; i < g_blockCount; ++i)
+        if (PlayerOverlapsBlock(x, feetY, z, g_blocks[i]))
+            return true;
+    return false;
+}
+
+static bool IsStandingOnBlock(float x, float feetY, float z)
+{
+    for (int i = 0; i < g_blockCount; ++i)
+    {
+        const Block& b = g_blocks[i];
+        float top = b.position.y + b.halfSize;
+        if (fabsf(feetY - top) < 0.08f &&
+            x + PLAYER_RADIUS > b.position.x - b.halfSize &&
+            x - PLAYER_RADIUS < b.position.x + b.halfSize &&
+            z + PLAYER_RADIUS > b.position.z - b.halfSize &&
+            z - PLAYER_RADIUS < b.position.z + b.halfSize)
+            return true;
+    }
+    return false;
+}
+
 static void AddLine(const Vec3& a, const Vec3& b, DWORD color)
 {
-    if (g_vertexCount + 2 > MAX_VERTICES) return;
-    g_vertices[g_vertexCount].x = a.x;
-    g_vertices[g_vertexCount].y = a.y;
-    g_vertices[g_vertexCount].z = a.z;
-    g_vertices[g_vertexCount++].color = color;
-    g_vertices[g_vertexCount].x = b.x;
-    g_vertices[g_vertexCount].y = b.y;
-    g_vertices[g_vertexCount].z = b.z;
-    g_vertices[g_vertexCount++].color = color;
+    if (g_lineCount + 2 > MAX_LINE_VERTICES) return;
+    g_lines[g_lineCount].x=a.x; g_lines[g_lineCount].y=a.y; g_lines[g_lineCount].z=a.z;
+    g_lines[g_lineCount++].color=color;
+    g_lines[g_lineCount].x=b.x; g_lines[g_lineCount].y=b.y; g_lines[g_lineCount].z=b.z;
+    g_lines[g_lineCount++].color=color;
 }
 
-static void AddCube(const Vec3& center, float halfSize, DWORD color)
+static void AddTriangle(const Vec3& a, const Vec3& b, const Vec3& c, DWORD color)
+{
+    if (g_triangleCount + 3 > MAX_TRI_VERTICES) return;
+    g_triangles[g_triangleCount].x=a.x; g_triangles[g_triangleCount].y=a.y; g_triangles[g_triangleCount].z=a.z;
+    g_triangles[g_triangleCount++].color=color;
+    g_triangles[g_triangleCount].x=b.x; g_triangles[g_triangleCount].y=b.y; g_triangles[g_triangleCount].z=b.z;
+    g_triangles[g_triangleCount++].color=color;
+    g_triangles[g_triangleCount].x=c.x; g_triangles[g_triangleCount].y=c.y; g_triangles[g_triangleCount].z=c.z;
+    g_triangles[g_triangleCount++].color=color;
+}
+
+// Triangle filler: each box face is submitted as two filled triangles.
+static void AddQuad(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d, DWORD color)
+{
+    AddTriangle(a, b, c, color);
+    AddTriangle(a, c, d, color);
+}
+
+static void AddSolidBox(const Vec3& center, const Vec3& half, DWORD color)
 {
     Vec3 v[8];
-    const float sx[8] = {-1, 1, 1,-1,-1, 1, 1,-1};
-    const float sy[8] = {-1,-1, 1, 1,-1,-1, 1, 1};
-    const float sz[8] = {-1,-1,-1,-1, 1, 1, 1, 1};
+    v[0]=Vec3(center.x-half.x,center.y-half.y,center.z-half.z);
+    v[1]=Vec3(center.x+half.x,center.y-half.y,center.z-half.z);
+    v[2]=Vec3(center.x+half.x,center.y+half.y,center.z-half.z);
+    v[3]=Vec3(center.x-half.x,center.y+half.y,center.z-half.z);
+    v[4]=Vec3(center.x-half.x,center.y-half.y,center.z+half.z);
+    v[5]=Vec3(center.x+half.x,center.y-half.y,center.z+half.z);
+    v[6]=Vec3(center.x+half.x,center.y+half.y,center.z+half.z);
+    v[7]=Vec3(center.x-half.x,center.y+half.y,center.z+half.z);
 
-    for (int i = 0; i < 8; ++i)
-        v[i] = Vec3(center.x + sx[i]*halfSize,
-                    center.y + sy[i]*halfSize,
-                    center.z + sz[i]*halfSize);
+    AddQuad(v[0],v[1],v[2],v[3],color);
+    AddQuad(v[5],v[4],v[7],v[6],color);
+    AddQuad(v[4],v[0],v[3],v[7],color);
+    AddQuad(v[1],v[5],v[6],v[2],color);
+    AddQuad(v[3],v[2],v[6],v[7],color);
+    AddQuad(v[4],v[5],v[1],v[0],color);
 
+    DWORD edge = D3DCOLOR_ARGB(255, 22, 28, 35);
     static const int edges[12][2] =
     {
-        {0,1},{1,2},{2,3},{3,0},
-        {4,5},{5,6},{6,7},{7,4},
-        {0,4},{1,5},{2,6},{3,7}
+        {0,1},{1,2},{2,3},{3,0},{4,5},{5,6},
+        {6,7},{7,4},{0,4},{1,5},{2,6},{3,7}
     };
-
-    for (int e = 0; e < 12; ++e)
-        AddLine(v[edges[e][0]], v[edges[e][1]], color);
+    for (int i=0;i<12;++i) AddLine(v[edges[i][0]],v[edges[i][1]],edge);
 }
 
-static void BuildScene(float renderDistance, const Vec3& cameraPosition)
+static void BuildScene(float renderDistance, const Vec3& cameraPosition, int detail)
 {
-    g_vertexCount = 0;
+    g_triangleCount = 0;
+    g_lineCount = 0;
+
     int gridRadius = (g_playerCount == 1) ? 12 : ((g_playerCount == 2) ? 8 : 5);
+    gridRadius = (int)(gridRadius * detail);
+    if (gridRadius < 3) gridRadius = 3;
 
     if (g_showGrid)
     {
-        const DWORD gridColor = D3DCOLOR_ARGB(255, 45, 57, 70);
-        for (int i = -gridRadius; i <= gridRadius; ++i)
+        DWORD gridColor = D3DCOLOR_ARGB(255, 45, 57, 70);
+        for (int i=-gridRadius;i<=gridRadius;++i)
         {
-            AddLine(Vec3((float)i, 0, -gridRadius), Vec3((float)i, 0, gridRadius), gridColor);
-            AddLine(Vec3(-gridRadius, 0, (float)i), Vec3(gridRadius, 0, (float)i), gridColor);
+            AddLine(Vec3((float)i,0,(float)-gridRadius),Vec3((float)i,0,(float)gridRadius),gridColor);
+            AddLine(Vec3((float)-gridRadius,0,(float)i),Vec3((float)gridRadius,0,(float)i),gridColor);
         }
     }
 
-    AddLine(Vec3(0, 0.01f, 0), Vec3(3, 0.01f, 0), D3DCOLOR_ARGB(255, 230, 70, 70));
-    AddLine(Vec3(0, 0.01f, 0), Vec3(0, 3, 0), D3DCOLOR_ARGB(255, 80, 220, 100));
-    AddLine(Vec3(0, 0.01f, 0), Vec3(0, 0.01f, 3), D3DCOLOR_ARGB(255, 80, 150, 255));
+    AddLine(Vec3(0,0.01f,0),Vec3(3,0.01f,0),D3DCOLOR_ARGB(255,230,70,70));
+    AddLine(Vec3(0,0.01f,0),Vec3(0,3,0),D3DCOLOR_ARGB(255,80,220,100));
+    AddLine(Vec3(0,0.01f,0),Vec3(0,0.01f,3),D3DCOLOR_ARGB(255,80,150,255));
 
-    for (int i = 0; i < g_blockCount; ++i)
+    for (int i=0;i<g_blockCount;++i)
     {
-        const Block& block = g_blocks[i];
-        float dx = block.position.x - cameraPosition.x;
-        float dy = block.position.y - cameraPosition.y;
-        float dz = block.position.z - cameraPosition.z;
-        if (dx*dx + dy*dy + dz*dz <= renderDistance*renderDistance)
-            AddCube(block.position, block.halfSize, block.color);
+        const Block& b = g_blocks[i];
+        float dx=b.position.x-cameraPosition.x;
+        float dy=b.position.y-cameraPosition.y;
+        float dz=b.position.z-cameraPosition.z;
+        if (dx*dx+dy*dy+dz*dz <= renderDistance*renderDistance)
+            AddSolidBox(b.position,Vec3(b.halfSize,b.halfSize,b.halfSize),b.color);
     }
-
 }
 
 static D3DMATRIX MatrixIdentity()
 {
     D3DMATRIX m;
-    ZeroMemory(&m, sizeof(m));
-    m._11 = m._22 = m._33 = m._44 = 1.0f;
+    ZeroMemory(&m,sizeof(m));
+    m._11=m._22=m._33=m._44=1.0f;
     return m;
 }
 
-static D3DMATRIX MatrixLookAtLH(const Vec3& eye, const Vec3& at, const Vec3& up)
+static D3DMATRIX MatrixLookAtLH(const Vec3& eye,const Vec3& at,const Vec3& up)
 {
-    Vec3 z(at.x-eye.x, at.y-eye.y, at.z-eye.z);
-    float len = sqrtf(z.x*z.x + z.y*z.y + z.z*z.z);
-    if (len < 0.0001f) len = 1.0f;
-    z.x /= len; z.y /= len; z.z /= len;
-
-    Vec3 x(up.y*z.z-up.z*z.y, up.z*z.x-up.x*z.z, up.x*z.y-up.y*z.x);
-    len = sqrtf(x.x*x.x + x.y*x.y + x.z*x.z);
-    if (len < 0.0001f) len = 1.0f;
-    x.x /= len; x.y /= len; x.z /= len;
-
-    Vec3 y(z.y*x.z-z.z*x.y, z.z*x.x-z.x*x.z, z.x*x.y-z.y*x.x);
+    Vec3 z(at.x-eye.x,at.y-eye.y,at.z-eye.z);
+    float len=sqrtf(z.x*z.x+z.y*z.y+z.z*z.z);
+    if(len<0.0001f) len=1.0f;
+    z.x/=len; z.y/=len; z.z/=len;
+    Vec3 x(up.y*z.z-up.z*z.y,up.z*z.x-up.x*z.z,up.x*z.y-up.y*z.x);
+    len=sqrtf(x.x*x.x+x.y*x.y+x.z*x.z);
+    if(len<0.0001f) len=1.0f;
+    x.x/=len; x.y/=len; x.z/=len;
+    Vec3 y(z.y*x.z-z.z*x.y,z.z*x.x-z.x*x.z,z.x*x.y-z.y*x.x);
 
     D3DMATRIX m;
     m._11=x.x; m._12=y.x; m._13=z.x; m._14=0;
@@ -279,339 +355,371 @@ static D3DMATRIX MatrixLookAtLH(const Vec3& eye, const Vec3& at, const Vec3& up)
     return m;
 }
 
-static D3DMATRIX MatrixPerspectiveFovLH(float fov, float aspect, float zn, float zf)
+static D3DMATRIX MatrixPerspectiveFovLH(float fov,float aspect,float zn,float zf)
 {
     D3DMATRIX m;
-    ZeroMemory(&m, sizeof(m));
-    float yScale = 1.0f / tanf(fov * 0.5f);
-    float xScale = yScale / aspect;
-    m._11 = xScale;
-    m._22 = yScale;
-    m._33 = zf / (zf - zn);
-    m._34 = 1.0f;
-    m._43 = -zn * zf / (zf - zn);
+    ZeroMemory(&m,sizeof(m));
+    float ys=1.0f/tanf(fov*0.5f);
+    m._11=ys/aspect;
+    m._22=ys;
+    m._33=zf/(zf-zn);
+    m._34=1.0f;
+    m._43=-zn*zf/(zf-zn);
     return m;
 }
 
 static bool InitializeGraphics()
 {
-    g_d3d = Direct3DCreate9(D3D_SDK_VERSION);
-    if (!g_d3d) return false;
+    g_d3d=Direct3DCreate9(D3D_SDK_VERSION);
+    if(!g_d3d) return false;
 
     D3DPRESENT_PARAMETERS pp;
-    ZeroMemory(&pp, sizeof(pp));
-    pp.BackBufferWidth = SCREEN_W;
-    pp.BackBufferHeight = SCREEN_H;
-    pp.BackBufferFormat = D3DFMT_X8R8G8B8;
-    pp.BackBufferCount = 2;
-    pp.MultiSampleType = D3DMULTISAMPLE_NONE;
-    pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    pp.hDeviceWindow = 0;
-    pp.Windowed = FALSE;
-    pp.EnableAutoDepthStencil = TRUE;
-    pp.AutoDepthStencilFormat = D3DFMT_D24S8;
-    pp.FullScreen_RefreshRateInHz = 60;
-    pp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+    ZeroMemory(&pp,sizeof(pp));
+    pp.BackBufferWidth=SCREEN_W;
+    pp.BackBufferHeight=SCREEN_H;
+    pp.BackBufferFormat=D3DFMT_X8R8G8B8;
+    pp.BackBufferCount=2;
+    pp.MultiSampleType=D3DMULTISAMPLE_NONE;
+    pp.SwapEffect=D3DSWAPEFFECT_DISCARD;
+    pp.hDeviceWindow=0;
+    pp.Windowed=FALSE;
+    pp.EnableAutoDepthStencil=TRUE;
+    pp.AutoDepthStencilFormat=D3DFMT_D24S8;
+    pp.FullScreen_RefreshRateInHz=60;
+    pp.PresentationInterval=D3DPRESENT_INTERVAL_ONE;
 
-    HRESULT hr = g_d3d->CreateDevice(
-        D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, 0,
-        D3DCREATE_HARDWARE_VERTEXPROCESSING, &pp, &g_device);
-
-    if (FAILED(hr))
+    HRESULT hr=g_d3d->CreateDevice(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,0,
+        D3DCREATE_HARDWARE_VERTEXPROCESSING,&pp,&g_device);
+    if(FAILED(hr))
     {
-        g_d3d->Release();
-        g_d3d = 0;
+        g_d3d->Release(); g_d3d=0;
         return false;
     }
 
-    g_device->SetRenderState(D3DRS_LIGHTING, FALSE);
-    g_device->SetRenderState(D3DRS_ZENABLE, TRUE);
-    g_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    g_device->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+    g_device->SetRenderState(D3DRS_LIGHTING,FALSE);
+    g_device->SetRenderState(D3DRS_ZENABLE,TRUE);
+    g_device->SetRenderState(D3DRS_CULLMODE,D3DCULL_NONE);
+    g_device->SetRenderState(D3DRS_ALPHABLENDENABLE,FALSE);
+    g_device->SetRenderState(D3DRS_SHADEMODE,D3DSHADE_GOURAUD);
     g_device->SetFVF(BW_FVF);
     return true;
 }
 
-static void UpdatePlayer(int index, float dt)
+static void PlaceBlockInFront(int index)
 {
-    Controller& pad = g_pads[index];
-    Player& player = g_players[index];
-    Camera& camera = player.camera;
+    Player& p=g_players[index];
+    Vec3 forward(sinf(p.camera.yaw),0,cosf(p.camera.yaw));
+    Vec3 place(p.camera.position.x+forward.x*3.0f,
+               0.5f,
+               p.camera.position.z+forward.z*3.0f);
+    place.x=floorf(place.x+0.5f);
+    place.z=floorf(place.z+0.5f);
 
-    const float moveSpeed = g_editorMode ? 8.0f : 5.0f;
-    const float lookSpeed = 1.8f;
+    // Do not place a block intersecting the placing player's body.
+    float feet=p.camera.position.y-EYE_HEIGHT;
+    Block candidate;
+    candidate.position=place;
+    candidate.halfSize=0.5f;
+    if(!PlayerOverlapsBlock(p.camera.position.x,feet,p.camera.position.z,candidate))
+        AddBlock(place,0.5f,g_itemColors[p.selectedSlot]);
+}
 
-    camera.yaw += pad.rx * lookSpeed * dt;
-    camera.pitch -= pad.ry * lookSpeed * dt;
-    camera.pitch = Clamp(camera.pitch, -1.45f, 1.45f);
+static void UpdatePlayer(int index,float dt)
+{
+    Controller& pad=g_pads[index];
+    Player& p=g_players[index];
+    Camera& camera=p.camera;
 
-    float forwardX = sinf(camera.yaw);
-    float forwardZ = cosf(camera.yaw);
-    float rightX = cosf(camera.yaw);
-    float rightZ = -sinf(camera.yaw);
+    const float moveSpeed=g_editorMode?8.0f:5.0f;
+    const float lookSpeed=1.8f;
+    camera.yaw+=pad.rx*lookSpeed*dt;
+    camera.pitch=Clamp(camera.pitch-pad.ry*lookSpeed*dt,-1.45f,1.45f);
 
-    camera.position.x += (forwardX*pad.ly + rightX*pad.lx) * moveSpeed * dt;
-    camera.position.z += (forwardZ*pad.ly + rightZ*pad.lx) * moveSpeed * dt;
+    float fx=sinf(camera.yaw), fz=cosf(camera.yaw);
+    float rx=cosf(camera.yaw), rz=-sinf(camera.yaw);
+    float moveX=(fx*pad.ly+rx*pad.lx)*moveSpeed*dt;
+    float moveZ=(fz*pad.ly+rz*pad.lx)*moveSpeed*dt;
 
-    if (g_editorMode)
+    if(g_editorMode)
     {
-        camera.position.y += (pad.rightTrigger - pad.leftTrigger) * moveSpeed * dt;
-        if (pad.pressedA)
+        camera.position.x+=moveX;
+        camera.position.z+=moveZ;
+        camera.position.y+=(pad.rightTrigger-pad.leftTrigger)*moveSpeed*dt;
+        if(pad.pressedA)
         {
-            Vec3 forward(sinf(camera.yaw), 0, cosf(camera.yaw));
-            Vec3 place(camera.position.x + forward.x*4.0f,
-                       camera.position.y - 0.5f,
-                       camera.position.z + forward.z*4.0f);
-            place.x = floorf(place.x + 0.5f);
-            place.y = floorf(place.y + 0.5f);
-            place.z = floorf(place.z + 0.5f);
-            AddBlock(place, 0.5f, g_itemColors[player.selectedSlot]);
+            Vec3 place(camera.position.x+fx*4.0f,camera.position.y-0.5f,camera.position.z+fz*4.0f);
+            place.x=floorf(place.x+0.5f); place.y=floorf(place.y+0.5f); place.z=floorf(place.z+0.5f);
+            AddBlock(place,0.5f,g_itemColors[p.selectedSlot]);
         }
-        if (pad.pressedX && g_blockCount > 0)
-            --g_blockCount;
-        if (pad.pressedB)
-            g_showGrid = !g_showGrid;
+        if(pad.pressedX && g_blockCount>0) --g_blockCount;
+        if(pad.pressedB) g_showGrid=!g_showGrid;
     }
     else
     {
-        if (pad.pressedA && player.grounded)
+        float feet=camera.position.y-EYE_HEIGHT;
+        float nextX=camera.position.x+moveX;
+        float nextZ=camera.position.z+moveZ;
+
+        // Resolve horizontal movement independently so the character can slide along walls.
+        if(!CollidesAt(nextX,feet,camera.position.z))
+            camera.position.x=nextX;
+        if(!CollidesAt(camera.position.x,feet,nextZ))
+            camera.position.z=nextZ;
+
+        if(pad.pressedA && p.grounded)
         {
-            player.verticalVelocity = 5.5f;
-            player.grounded = false;
+            p.verticalVelocity=6.0f;
+            p.grounded=false;
         }
 
-        player.verticalVelocity -= 14.0f * dt;
-        camera.position.y += player.verticalVelocity * dt;
-        if (camera.position.y < 1.7f)
+        p.verticalVelocity-=GRAVITY*dt;
+        float nextFeet=feet+p.verticalVelocity*dt;
+        if(p.verticalVelocity<=0.0f &&
+           (nextFeet<=0.0f || IsStandingOnBlock(camera.position.x,nextFeet,camera.position.z)))
         {
-            camera.position.y = 1.7f;
-            player.verticalVelocity = 0.0f;
-            player.grounded = true;
+            nextFeet=0.0f;
+            for(int b=0;b<g_blockCount;++b)
+            {
+                const Block& block=g_blocks[b];
+                float top=block.position.y+block.halfSize;
+                if(top>nextFeet && top<=feet+0.12f &&
+                   camera.position.x+PLAYER_RADIUS>block.position.x-block.halfSize &&
+                   camera.position.x-PLAYER_RADIUS<block.position.x+block.halfSize &&
+                   camera.position.z+PLAYER_RADIUS>block.position.z-block.halfSize &&
+                   camera.position.z-PLAYER_RADIUS<block.position.z+block.halfSize)
+                    nextFeet=top;
+            }
+            p.verticalVelocity=0.0f;
+            p.grounded=true;
         }
-
-        if (pad.pressedDpadLeft)
-            player.selectedSlot = (player.selectedSlot + INVENTORY_SLOTS - 1) % INVENTORY_SLOTS;
-        if (pad.pressedDpadRight)
-            player.selectedSlot = (player.selectedSlot + 1) % INVENTORY_SLOTS;
-
-        // X uses the selected inventory item by placing a block in front.
-        if (pad.pressedX)
+        else
         {
-            Vec3 forward(sinf(camera.yaw), 0, cosf(camera.yaw));
-            Vec3 place(camera.position.x + forward.x*3.0f,
-                       0.5f,
-                       camera.position.z + forward.z*3.0f);
-            place.x = floorf(place.x + 0.5f);
-            place.z = floorf(place.z + 0.5f);
-            AddBlock(place, 0.5f, g_itemColors[player.selectedSlot]);
+            p.grounded=false;
+            // Head/side collision stops upward movement against block undersides.
+            if(p.verticalVelocity>0.0f && CollidesAt(camera.position.x,nextFeet,camera.position.z))
+            {
+                nextFeet=feet;
+                p.verticalVelocity=0.0f;
+            }
         }
+        camera.position.y=nextFeet+EYE_HEIGHT;
+
+        if(pad.pressedDpadLeft)
+            p.selectedSlot=(p.selectedSlot+INVENTORY_SLOTS-1)%INVENTORY_SLOTS;
+        if(pad.pressedDpadRight)
+            p.selectedSlot=(p.selectedSlot+1)%INVENTORY_SLOTS;
+        if(pad.pressedX) PlaceBlockInFront(index);
     }
 
-    if (pad.pressedStart)
+    if(pad.pressedStart)
     {
-        // Start recentres this player's camera without changing their inventory.
-        camera.position = Vec3((index - 1.5f) * 1.2f, g_editorMode ? 2.5f : 1.7f, -8.0f);
-        camera.yaw = 0.0f;
-        camera.pitch = 0.0f;
+        camera.position=Vec3((index-1.5f)*1.2f,g_editorMode?2.5f:EYE_HEIGHT,-8.0f);
+        camera.yaw=0.0f;
+        camera.pitch=0.0f;
+        p.verticalVelocity=0.0f;
+        p.grounded=true;
     }
 }
 
-static Viewport GetViewport(int playerIndex, int playerCount)
+static Viewport GetViewport(int slot,int count)
 {
     Viewport v;
-    if (playerCount <= 1)
-    {
-        v.x = 0; v.y = 0; v.width = SCREEN_W; v.height = SCREEN_H;
-    }
-    else if (playerCount == 2)
-    {
-        v.x = playerIndex * (SCREEN_W / 2);
-        v.y = 0; v.width = SCREEN_W / 2; v.height = SCREEN_H;
-    }
-    else
-    {
-        v.x = (playerIndex % 2) * (SCREEN_W / 2);
-        v.y = (playerIndex / 2) * (SCREEN_H / 2);
-        v.width = SCREEN_W / 2; v.height = SCREEN_H / 2;
-    }
+    if(count<=1) { v.x=0; v.y=0; v.width=SCREEN_W; v.height=SCREEN_H; }
+    else if(count==2) { v.x=slot*(SCREEN_W/2); v.y=0; v.width=SCREEN_W/2; v.height=SCREEN_H; }
+    else { v.x=(slot%2)*(SCREEN_W/2); v.y=(slot/2)*(SCREEN_H/2); v.width=SCREEN_W/2; v.height=SCREEN_H/2; }
     return v;
 }
 
-static void AddHudLine(HudVertex* verts, int& count,
-                       float x1, float y1, float x2, float y2, DWORD color)
+static void AddHudLine(HudVertex* v,int& count,float x1,float y1,float x2,float y2,DWORD color)
 {
-    if (count + 2 > 256) return;
-    verts[count].x=x1; verts[count].y=y1; verts[count].z=0; verts[count].rhw=1; verts[count++].color=color;
-    verts[count].x=x2; verts[count].y=y2; verts[count].z=0; verts[count].rhw=1; verts[count++].color=color;
+    if(count+2>256) return;
+    v[count].x=x1; v[count].y=y1; v[count].z=0; v[count].rhw=1; v[count++].color=color;
+    v[count].x=x2; v[count].y=y2; v[count].z=0; v[count].rhw=1; v[count++].color=color;
 }
 
-static void AddHudRect(HudVertex* verts, int& count, float x, float y,
-                       float w, float h, DWORD color)
+static void AddHudRect(HudVertex* v,int& count,float x,float y,float w,float h,DWORD color)
 {
-    AddHudLine(verts,count,x,y,x+w,y,color);
-    AddHudLine(verts,count,x+w,y,x+w,y+h,color);
-    AddHudLine(verts,count,x+w,y+h,x,y+h,color);
-    AddHudLine(verts,count,x,y+h,x,y,color);
+    AddHudLine(v,count,x,y,x+w,y,color);
+    AddHudLine(v,count,x+w,y,x+w,y+h,color);
+    AddHudLine(v,count,x+w,y+h,x,y+h,color);
+    AddHudLine(v,count,x,y+h,x,y,color);
 }
 
-static void RenderHud(int playerIndex, const Viewport& viewport)
+static void RenderHud(int playerIndex,const Viewport& viewport)
 {
     HudVertex hud[256];
-    int count = 0;
-    Player& player = g_players[playerIndex];
-    float unit = (g_playerCount == 1) ? 1.0f : 0.72f;
-    float slotW = 34.0f * unit;
-    float slotH = 30.0f * unit;
-    float gap = 4.0f * unit;
-    float totalW = INVENTORY_SLOTS * slotW + (INVENTORY_SLOTS - 1) * gap;
-    float startX = viewport.x + (viewport.width - totalW) * 0.5f;
-    float y = viewport.y + viewport.height - slotH - 18.0f * unit;
-    DWORD border = g_editorMode ? D3DCOLOR_ARGB(255, 235, 165, 65) : D3DCOLOR_ARGB(255, 90, 190, 255);
+    int count=0;
+    Player& p=g_players[playerIndex];
+    float scale=(g_playerCount==1)?1.0f:0.72f;
+    float slotW=34.0f*scale, slotH=30.0f*scale, gap=4.0f*scale;
+    float total=INVENTORY_SLOTS*slotW+(INVENTORY_SLOTS-1)*gap;
+    float start=viewport.x+(viewport.width-total)*0.5f;
+    float y=viewport.y+viewport.height-slotH-18.0f*scale;
+    DWORD modeColor=g_editorMode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
 
-    // The hotbar is a lightweight HUD placeholder; item names/text come later.
-    for (int i = 0; i < INVENTORY_SLOTS; ++i)
+    for(int i=0;i<INVENTORY_SLOTS;++i)
     {
-        float x = startX + i * (slotW + gap);
-        DWORD frame = (i == player.selectedSlot) ? border : D3DCOLOR_ARGB(255, 125, 135, 150);
-        AddHudRect(hud, count, x, y, slotW, slotH, frame);
-        AddHudRect(hud, count, x + 9.0f*unit, y + 8.0f*unit,
-                   16.0f*unit, 14.0f*unit, g_itemColors[i]);
+        float x=start+i*(slotW+gap);
+        AddHudRect(hud,count,x,y,slotW,slotH,
+            i==p.selectedSlot?modeColor:D3DCOLOR_ARGB(255,125,135,150));
+        AddHudRect(hud,count,x+9*scale,y+8*scale,16*scale,14*scale,g_itemColors[i]);
     }
-
-    // A mode strip and player-color marker distinguish split-screen views.
-    AddHudRect(hud, count, viewport.x + 12, viewport.y + 12, 76, 8,
-               g_editorMode ? D3DCOLOR_ARGB(255, 235, 165, 65) : D3DCOLOR_ARGB(255, 90, 190, 255));
-    AddHudRect(hud, count, viewport.x + viewport.width - 22, viewport.y + 12,
-               10, 10, D3DCOLOR_ARGB(255, 80 + playerIndex*35, 150, 235));
+    AddHudRect(hud,count,viewport.x+12,viewport.y+12,76,8,modeColor);
+    AddHudRect(hud,count,viewport.x+viewport.width-22,viewport.y+12,10,10,
+        D3DCOLOR_ARGB(255,80+playerIndex*35,150,235));
 
     D3DVIEWPORT9 full;
-    full.X = 0; full.Y = 0; full.Width = SCREEN_W; full.Height = SCREEN_H;
-    full.MinZ = 0.0f; full.MaxZ = 1.0f;
+    full.X=0; full.Y=0; full.Width=SCREEN_W; full.Height=SCREEN_H;
+    full.MinZ=0.0f; full.MaxZ=1.0f;
     g_device->SetViewport(&full);
     g_device->SetVertexShader(0);
     g_device->SetPixelShader(0);
     g_device->SetFVF(BW_HUD_FVF);
-    if (count > 0)
-        g_device->DrawPrimitiveUP(D3DPT_LINELIST, count/2, hud, sizeof(HudVertex));
+    if(count>0) g_device->DrawPrimitiveUP(D3DPT_LINELIST,count/2,hud,sizeof(HudVertex));
 }
 
-static void RenderPlayerView(int playerIndex, const Viewport& viewport, float renderDistance)
+static void RenderCharacter(int playerIndex,float renderDistance)
 {
-    Player& player = g_players[playerIndex];
-    Camera& camera = player.camera;
+    const Player& p=g_players[playerIndex];
+    Vec3 feet(p.camera.position.x,p.camera.position.y-EYE_HEIGHT,p.camera.position.z);
+    Vec3 delta(feet.x-g_players[0].camera.position.x,0,feet.z-g_players[0].camera.position.z);
+    (void)delta;
+    // Each local character is visible to the other split-screen cameras.
+    AddSolidBox(Vec3(feet.x,feet.y+PLAYER_HEIGHT*0.5f,feet.z),
+                Vec3(PLAYER_RADIUS,PLAYER_HEIGHT*0.5f,PLAYER_RADIUS),
+                D3DCOLOR_ARGB(255,75+playerIndex*35,145,235));
+    AddSolidBox(Vec3(feet.x,feet.y+PLAYER_HEIGHT+0.12f,feet.z),
+                Vec3(0.23f,0.23f,0.23f),
+                D3DCOLOR_ARGB(255,220,185,145));
+    (void)renderDistance;
+}
 
-    BuildScene(renderDistance, camera.position);
+static void RenderPlayerView(int playerIndex,const Viewport& viewport,float renderDistance,int detail)
+{
+    Player& p=g_players[playerIndex];
+    Camera& camera=p.camera;
+    BuildScene(renderDistance,camera.position,detail);
 
-    Vec3 forward(sinf(camera.yaw)*cosf(camera.pitch),
-                 sinf(camera.pitch),
-                 cosf(camera.yaw)*cosf(camera.pitch));
-    Vec3 target(camera.position.x+forward.x,
-                camera.position.y+forward.y,
-                camera.position.z+forward.z);
+    // Draw all player avatars, then the world. Avatars are simple filled boxes for now.
+    for(int i=0;i<g_playerCount;++i)
+        RenderCharacter(g_activePlayers[i],renderDistance);
 
-    D3DVIEWPORT9 d3dViewport;
-    d3dViewport.X = viewport.x;
-    d3dViewport.Y = viewport.y;
-    d3dViewport.Width = viewport.width;
-    d3dViewport.Height = viewport.height;
-    d3dViewport.MinZ = 0.0f;
-    d3dViewport.MaxZ = 1.0f;
-    g_device->SetViewport(&d3dViewport);
+    Vec3 forward(sinf(camera.yaw)*cosf(camera.pitch),sinf(camera.pitch),cosf(camera.yaw)*cosf(camera.pitch));
+    Vec3 target(camera.position.x+forward.x,camera.position.y+forward.y,camera.position.z+forward.z);
 
-    D3DMATRIX world = MatrixIdentity();
-    D3DMATRIX view = MatrixLookAtLH(camera.position, target, Vec3(0,1,0));
-    D3DMATRIX projection = MatrixPerspectiveFovLH(
-        PI_F/3.0f, (float)viewport.width/(float)viewport.height, 0.1f, renderDistance);
+    D3DVIEWPORT9 vp;
+    vp.X=viewport.x; vp.Y=viewport.y; vp.Width=viewport.width; vp.Height=viewport.height;
+    vp.MinZ=0.0f; vp.MaxZ=1.0f;
+    g_device->SetViewport(&vp);
 
-    g_device->SetTransform(D3DTS_WORLD, &world);
-    g_device->SetTransform(D3DTS_VIEW, &view);
-    g_device->SetTransform(D3DTS_PROJECTION, &projection);
+    D3DMATRIX world=MatrixIdentity();
+    D3DMATRIX view=MatrixLookAtLH(camera.position,target,Vec3(0,1,0));
+    D3DMATRIX projection=MatrixPerspectiveFovLH(PI_F/3.0f,
+        (float)viewport.width/(float)viewport.height,0.1f,renderDistance);
+    g_device->SetTransform(D3DTS_WORLD,&world);
+    g_device->SetTransform(D3DTS_VIEW,&view);
+    g_device->SetTransform(D3DTS_PROJECTION,&projection);
     g_device->SetVertexShader(0);
     g_device->SetPixelShader(0);
     g_device->SetFVF(BW_FVF);
-    if (g_vertexCount > 0)
-        g_device->DrawPrimitiveUP(D3DPT_LINELIST, g_vertexCount/2, g_vertices, sizeof(Vertex));
 
-    RenderHud(playerIndex, viewport);
+    if(g_triangleCount>0)
+        g_device->DrawPrimitiveUP(D3DPT_TRIANGLELIST,g_triangleCount/3,g_triangles,sizeof(Vertex));
+    if(g_lineCount>0)
+        g_device->DrawPrimitiveUP(D3DPT_LINELIST,g_lineCount/2,g_lines,sizeof(Vertex));
+
+    RenderHud(playerIndex,viewport);
+}
+
+static void UpdateAdaptiveQuality(float frameSeconds)
+{
+    if(frameSeconds<=0.0f) return;
+    float instantFps=1.0f/frameSeconds;
+    g_fpsAverage=g_fpsAverage*0.90f+instantFps*0.10f;
+
+    // Hysteresis avoids rapidly changing detail around the threshold.
+    if(g_fpsAverage<48.0f && g_qualityScale>0.55f)
+        g_qualityScale-=0.05f;
+    else if(g_fpsAverage>57.0f && g_qualityScale<1.0f)
+        g_qualityScale+=0.025f;
+    g_qualityScale=Clamp(g_qualityScale,0.55f,1.0f);
 }
 
 static void RenderFrame()
 {
-    if (!g_device) return;
+    if(!g_device) return;
 
-    float renderDistance = (g_playerCount == 1) ? 120.0f :
-                           ((g_playerCount == 2) ? 75.0f : 45.0f);
+    float playerScale=(g_playerCount==1)?1.0f:((g_playerCount==2)?0.72f:0.48f);
+    float renderDistance=120.0f*playerScale*g_qualityScale;
+    int detail=(int)(g_qualityScale*10.0f);
+    if(detail<5) detail=5;
 
-    g_device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
-                    D3DCOLOR_ARGB(255, 16, 22, 32), 1.0f, 0);
+    g_device->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,
+        D3DCOLOR_ARGB(255,16,22,32),1.0f,0);
     g_device->BeginScene();
 
-    for (int i = 0; i < g_playerCount; ++i)
+    for(int i=0;i<g_playerCount;++i)
     {
-        int playerIndex = g_activePlayers[i];
-        Viewport viewport = GetViewport(i, g_playerCount);
-        RenderPlayerView(playerIndex, viewport, renderDistance);
+        Viewport viewport=GetViewport(i,g_playerCount);
+        RenderPlayerView(g_activePlayers[i],viewport,renderDistance,detail);
     }
 
     g_device->EndScene();
-    g_device->Present(0, 0, 0, 0);
+    g_device->Present(0,0,0,0);
 }
 
 static void Shutdown()
 {
-    if (g_device) { g_device->Release(); g_device = 0; }
-    if (g_d3d) { g_d3d->Release(); g_d3d = 0; }
+    if(g_device) { g_device->Release(); g_device=0; }
+    if(g_d3d) { g_d3d->Release(); g_d3d=0; }
 }
 
 int main()
 {
-    ZeroMemory(g_pads, sizeof(g_pads));
-    for (int i = 0; i < PLAYER_LIMIT; ++i)
-        ResetPlayer(i);
+    ZeroMemory(g_pads,sizeof(g_pads));
+    for(int i=0;i<PLAYER_LIMIT;++i) ResetPlayer(i);
     InitializeWorld();
 
-    if (!InitializeGraphics())
-        return 1;
+    if(!InitializeGraphics()) return 1;
+    g_lastTick=GetTickCount();
 
-    g_lastTick = GetTickCount();
-
-    for (;;)
+    for(;;)
     {
-        DWORD now = GetTickCount();
-        float dt = (float)(now - g_lastTick) / 1000.0f;
-        g_lastTick = now;
-        dt = Clamp(dt, 0.001f, 0.05f);
-
-        int connectedCount = 0;
-        for (int i = 0; i < PLAYER_LIMIT; ++i)
+        DWORD now=GetTickCount();
+        DWORD elapsed=now-g_lastTick;
+        if(elapsed<FRAME_CAP_MS)
         {
-            UpdateController(i);
-            if (g_pads[i].connected)
-                g_activePlayers[connectedCount++] = i;
+            Sleep(1);
+            continue;
         }
 
-        // Controller 1 remains as a development viewport when no pad is connected.
-        if (connectedCount == 0)
-            g_activePlayers[0] = 0;
-        g_playerCount = connectedCount > 0 ? connectedCount : 1;
+        float dt=(float)elapsed/1000.0f;
+        g_lastTick=now;
+        dt=Clamp(dt,0.001f,0.05f);
+        UpdateAdaptiveQuality(dt);
 
-        // Back is a global mode toggle. Only the first newly-pressed Back is handled.
-        for (int i = 0; i < PLAYER_LIMIT; ++i)
+        int connected=0;
+        for(int i=0;i<PLAYER_LIMIT;++i)
         {
-            if (g_pads[i].connected && g_pads[i].pressedBack)
+            UpdateController(i);
+            if(g_pads[i].connected)
+                g_activePlayers[connected++]=i;
+        }
+        if(connected==0) g_activePlayers[0]=0;
+        g_playerCount=connected>0?connected:1;
+
+        for(int i=0;i<PLAYER_LIMIT;++i)
+        {
+            if(g_pads[i].connected && g_pads[i].pressedBack)
             {
-                g_editorMode = !g_editorMode;
+                g_editorMode=!g_editorMode;
                 break;
             }
         }
 
-        for (int i = 0; i < PLAYER_LIMIT; ++i)
-        {
-            if (g_pads[i].connected)
-                UpdatePlayer(i, dt);
-        }
-        if (connectedCount == 0)
-            UpdatePlayer(0, dt);
+        for(int i=0;i<PLAYER_LIMIT;++i)
+            if(g_pads[i].connected) UpdatePlayer(i,dt);
+        if(connected==0) UpdatePlayer(0,dt);
 
         RenderFrame();
     }
