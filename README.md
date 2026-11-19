@@ -1,65 +1,47 @@
-# Xbox 360 Physics Sandbox
+# BlockWorks 360
 
-Native Xbox 360 XDK C++ test project.
+A modular Xbox 360 homebrew sandbox test built with **XSDK** (the independent xenosworks toolchain), not the Microsoft XDK.
 
-## Current test
+## Project layout
 
-This build is a small playable graphics and collision test, not the finished sandbox engine.
+- `src/main.c` — startup, main loop, mode switching and app lifecycle.
+- `src/core/input.c` — XSDK controller polling and edge-triggered button input.
+- `src/game/world.c` — world/block storage and initial test scene.
+- `src/game/physics.c` — upright player-vs-block AABB collision.
+- `src/game/player.c` — movement, gravity, jumping, placement and editor controls.
+- `src/render/renderer.c` — XSDK GPU setup, camera projection, triangle generation, split-screen rendering.
+- `src/render/world.vert`, `world.frag` — GLSL shaders compiled by XSDK's shader pipeline.
+- `src/game/game.h` — shared game data and module interfaces.
 
-- Filled triangle rendering for solid colored block geometry, with dark edge lines.
-- A simple visible player character (blocky body and head).
-- Basic upright character movement, gravity, jumping, floor collision, and AABB collision against placed blocks.
-- Placeable blocks with eight selectable inventory colors.
-- Editor and Player modes, switched globally with **Back**.
-- Up to four local controllers with split-screen viewports.
-- Frame-rate-aware graphics quality: render distance and grid density reduce when performance drops, then recover gradually.
-- 60 FPS target/cap using a 60 Hz presentation interval plus a frame pacing wait.
+Each feature is kept in its own source file so changes to physics, input, world data or rendering do not require rewriting the application entry point.
 
-The character is intentionally not a ragdoll. It stays upright and uses basic movement/gravity. There is no knockdown system or ragdoll solver yet.
+## Build requirements
 
-## Build
+Follow the official [XSDK getting started guide](https://github.com/xenosworks/xsdk/blob/main/docs/GETTING_STARTED.md). XSDK builds on Linux or Windows through WSL 2. It needs its `powerpc-xsdk-elf` GCC toolchain, CMake 3.25+, Ninja and the XSDK repository/library.
 
-Create an Xbox 360 Game/Application project using the template installed with your Xbox 360 XDK and add `src/main.cpp`.
+This title requires an **RGH or JTAG Xbox 360** capable of launching unsigned homebrew XEX files. It will not run on a stock retail console.
 
-Use the Xbox 360 target configuration supplied by your XDK. The XDK project template should provide the appropriate platform libraries and linker settings. XDK versions differ, so this repository does not guess at a Visual Studio project format.
+From this repository, with XSDK installed at `$HOME/xsdk` and its compiler at `$HOME/xsdk-gcc`:
 
-## Controls
+```sh
+cmake -S . -B build -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=$HOME/xsdk/cmake/xsdk.cmake \
+  -DXSDK_TOOLCHAIN=$HOME/xsdk-gcc \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
 
-Press **Back** on any connected controller to switch the whole game between Editor and Player mode.
+Output: `build/blockworks360.xex`.
 
-### Player mode
+## Current controls
 
-- Left stick: move
-- Right stick: look / camera
-- A: jump
-- D-pad left/right: select inventory slot
-- X: place the selected block
-- Start: recenter your camera
+- **Back:** enter Player mode from Editor; press Back again in Player mode to exit.
+- **Player:** left stick moves, right stick looks, A jumps, D-pad left/right selects the block colour, X places a block, Start resets the player.
+- **Editor:** left stick moves, right stick looks, triggers move vertically, A places a block, X removes the most recently placed block, B toggles the grid flag, Start resets the player.
+- Up to four connected controllers get split-screen viewports.
 
-### Editor mode
+## Current implementation notes
 
-- Left stick: move horizontally
-- Right stick: look / camera
-- Left trigger / right trigger: move down / up
-- A: place the selected block
-- X: remove the most recently placed block
-- B: toggle the ground grid
-- Start: recenter your camera
+The player is an upright box with simple gravity, jumping and AABB collision. It is not a ragdoll and there is no knockdown system. The world stores up to 256 axis-aligned blocks. The renderer uses XSDK's Xenos GPU API and GLSL shaders; it does not use Direct3D 9 or Microsoft XDK headers.
 
-## Split-screen
-
-Each connected controller gets its own view, up to four players:
-
-- 1 player: full screen
-- 2 players: two side-by-side views
-- 3–4 players: a 2-by-2 layout
-
-The base render distance and grid detail are lower with more players. If the frame rate falls below the target, the renderer reduces render distance and grid density; it restores quality gradually when performance improves.
-
-## Graphics and physics status
-
-The renderer now submits filled triangle lists for solid block and character geometry, plus line lists for the grid and outlines. Collision is currently a simple upright player AABB against axis-aligned block AABBs, with per-axis horizontal movement resolution and swept vertical landing checks. This is suitable for a basic test scene, not a full physics engine.
-
-## Testing status
-
-The source has not been compiled against a specific Xbox 360 XDK installation or tested on an Xbox 360. Performance, exact frame pacing, and XDK API compatibility still need on-console verification.
+This is an initial XSDK port and modularization. It has not yet been built with the user's local XSDK toolchain or tested on a console. The current renderer uses a fixed 60 Hz simulation step paced by the present/vblank path; adaptive quality tuning and the ground grid are not yet reimplemented in this XSDK version.
