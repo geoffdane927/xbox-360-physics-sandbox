@@ -474,28 +474,40 @@ static void UpdatePlayer(int index,float dt)
 
         p.verticalVelocity-=GRAVITY*dt;
         float nextFeet=feet+p.verticalVelocity*dt;
-        if(p.verticalVelocity<=0.0f &&
-           (nextFeet<=0.0f || IsStandingOnBlock(camera.position.x,nextFeet,camera.position.z)))
+        bool landed=false;
+        if(p.verticalVelocity<=0.0f)
         {
-            nextFeet=0.0f;
+            float landingHeight=-100000.0f;
+            if(feet>=0.0f && nextFeet<=0.0f)
+                landingHeight=0.0f;
+
+            // Detect crossing a block top during this frame, not just exact contact.
             for(int b=0;b<g_blockCount;++b)
             {
                 const Block& block=g_blocks[b];
                 float top=block.position.y+block.halfSize;
-                if(top>nextFeet && top<=feet+0.12f &&
-                   camera.position.x+PLAYER_RADIUS>block.position.x-block.halfSize &&
-                   camera.position.x-PLAYER_RADIUS<block.position.x+block.halfSize &&
-                   camera.position.z+PLAYER_RADIUS>block.position.z-block.halfSize &&
-                   camera.position.z-PLAYER_RADIUS<block.position.z+block.halfSize)
-                    nextFeet=top;
+                bool overlapsXZ=
+                    camera.position.x+PLAYER_RADIUS>block.position.x-block.halfSize &&
+                    camera.position.x-PLAYER_RADIUS<block.position.x+block.halfSize &&
+                    camera.position.z+PLAYER_RADIUS>block.position.z-block.halfSize &&
+                    camera.position.z-PLAYER_RADIUS<block.position.z+block.halfSize;
+                if(overlapsXZ && feet>=top-0.02f && nextFeet<=top && top>landingHeight)
+                    landingHeight=top;
             }
-            p.verticalVelocity=0.0f;
-            p.grounded=true;
+
+            if(landingHeight>-99999.0f)
+            {
+                nextFeet=landingHeight;
+                p.verticalVelocity=0.0f;
+                p.grounded=true;
+                landed=true;
+            }
         }
-        else
+
+        if(!landed)
         {
             p.grounded=false;
-            // Head/side collision stops upward movement against block undersides.
+            // Head collision stops upward movement against block undersides.
             if(p.verticalVelocity>0.0f && CollidesAt(camera.position.x,nextFeet,camera.position.z))
             {
                 nextFeet=feet;
