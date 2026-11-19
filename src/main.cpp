@@ -219,22 +219,6 @@ static bool CollidesAt(float x, float feetY, float z)
     return false;
 }
 
-static bool IsStandingOnBlock(float x, float feetY, float z)
-{
-    for (int i = 0; i < g_blockCount; ++i)
-    {
-        const Block& b = g_blocks[i];
-        float top = b.position.y + b.halfSize;
-        if (fabsf(feetY - top) < 0.08f &&
-            x + PLAYER_RADIUS > b.position.x - b.halfSize &&
-            x - PLAYER_RADIUS < b.position.x + b.halfSize &&
-            z + PLAYER_RADIUS > b.position.z - b.halfSize &&
-            z - PLAYER_RADIUS < b.position.z + b.halfSize)
-            return true;
-    }
-    return false;
-}
-
 static void AddLine(const Vec3& a, const Vec3& b, DWORD color)
 {
     if (g_lineCount + 2 > MAX_LINE_VERTICES) return;
@@ -296,13 +280,13 @@ static void BuildScene(float renderDistance, const Vec3& cameraPosition, int det
     g_lineCount = 0;
 
     int gridRadius = (g_playerCount == 1) ? 12 : ((g_playerCount == 2) ? 8 : 5);
-    gridRadius = (int)(gridRadius * detail);
     if (gridRadius < 3) gridRadius = 3;
+    if (detail < 1) detail = 1;
 
     if (g_showGrid)
     {
         DWORD gridColor = D3DCOLOR_ARGB(255, 45, 57, 70);
-        for (int i=-gridRadius;i<=gridRadius;++i)
+        for (int i=-gridRadius;i<=gridRadius;i+=detail)
         {
             AddLine(Vec3((float)i,0,(float)-gridRadius),Vec3((float)i,0,(float)gridRadius),gridColor);
             AddLine(Vec3((float)-gridRadius,0,(float)i),Vec3((float)gridRadius,0,(float)i),gridColor);
@@ -594,8 +578,6 @@ static void RenderCharacter(int playerIndex,float renderDistance)
 {
     const Player& p=g_players[playerIndex];
     Vec3 feet(p.camera.position.x,p.camera.position.y-EYE_HEIGHT,p.camera.position.z);
-    Vec3 delta(feet.x-g_players[0].camera.position.x,0,feet.z-g_players[0].camera.position.z);
-    (void)delta;
     // Each local character is visible to the other split-screen cameras.
     AddSolidBox(Vec3(feet.x,feet.y+PLAYER_HEIGHT*0.5f,feet.z),
                 Vec3(PLAYER_RADIUS,PLAYER_HEIGHT*0.5f,PLAYER_RADIUS),
