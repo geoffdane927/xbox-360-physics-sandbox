@@ -1,7 +1,7 @@
 #include "render/renderer.h"
 #include <math.h>
 #include <string.h>
-#include "world_shaders.h"
+#include "blockworks360_shaders.h"
 #include "xsdk/gpu.h"
 #include "xsdk/kernel.h"
 #include "xsdk/log.h"
@@ -77,6 +77,13 @@ static void box(const BwGame *g,int pi,V3 c,V3 h,uint32_t color)
 static void build_view(const BwGame *game,int player_index)
 {
     vertex_count=0;
+    if(game->show_grid) {
+        for(int n=-12;n<=12;++n) {
+            const float q=(float)n;
+            box(game,player_index,(V3){q,0.006f,0.0f},(V3){0.008f,0.006f,12.0f},0xFF394653);
+            box(game,player_index,(V3){0.0f,0.006f,q},(V3){12.0f,0.006f,0.008f},0xFF394653);
+        }
+    }
     for(int i=0;i<game->block_count;++i) {
         const BwBlock *b=&game->blocks[i];
         const BwPlayer *p=&game->players[player_index];
@@ -96,9 +103,11 @@ static void build_view(const BwGame *game,int player_index)
 }
 static void upload_vertices(void)
 {
-    uint32_t words[BW_MAX_VERTICES*BW_VERTEX_WORDS];
-    memcpy(words,vertices,vertex_count*sizeof(BwVertex));
-    for(uint32_t i=0;i<vertex_count*BW_VERTEX_WORDS;++i) gpu_vertices[i]=words[i];
+    for(uint32_t i=0;i<vertex_count;++i) {
+        uint32_t words[BW_VERTEX_WORDS];
+        memcpy(words,&vertices[i],sizeof(BwVertex));
+        for(uint32_t j=0;j<BW_VERTEX_WORDS;++j) gpu_vertices[i*BW_VERTEX_WORDS+j]=words[j];
+    }
     xsdk_gpu_invalidate(xsdk_gpu_address(gpu_vertices),vertex_count*sizeof(BwVertex));
 }
 

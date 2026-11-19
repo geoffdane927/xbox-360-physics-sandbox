@@ -9,6 +9,7 @@ add_executable(blockworks360
     src/game/player.c
     src/render/renderer.c
 )
+target_include_directories(blockworks360 PRIVATE src)
 set_target_properties(blockworks360 PROPERTIES C_STANDARD 17 C_EXTENSIONS ON)
 target_compile_options(blockworks360 PRIVATE -Wall -Wextra -Werror)
 xsdk_add_shaders(blockworks360 src/render/world.vert src/render/world.frag)

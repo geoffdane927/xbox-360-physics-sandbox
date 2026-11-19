@@ -35,7 +35,8 @@ Output: `build/blockworks360.xex`.
 
 ## Current controls
 
-- **Back:** enter Player mode from Editor; press Back again in Player mode to exit.
+- **Back:** toggle Editor/Player mode.
+- **Guide:** exit the title.
 - **Player:** left stick moves, right stick looks, A jumps, D-pad left/right selects the block colour, X places a block, Start resets the player.
 - **Editor:** left stick moves, right stick looks, triggers move vertically, A places a block, X removes the most recently placed block, B toggles the grid flag, Start resets the player.
 - Up to four connected controllers get split-screen viewports.
@@ -44,4 +45,4 @@ Output: `build/blockworks360.xex`.
 
 The player is an upright box with simple gravity, jumping and AABB collision. It is not a ragdoll and there is no knockdown system. The world stores up to 256 axis-aligned blocks. The renderer uses XSDK's Xenos GPU API and GLSL shaders; it does not use Direct3D 9 or Microsoft XDK headers.
 
-This is an initial XSDK port and modularization. It has not yet been built with the user's local XSDK toolchain or tested on a console. The current renderer uses a fixed 60 Hz simulation step paced by the present/vblank path; adaptive quality tuning and the ground grid are not yet reimplemented in this XSDK version.
+This is an initial XSDK port and modularization. It has not yet been built with the user's local XSDK toolchain or tested on a console. The renderer uses a fixed 60 Hz simulation step paced by presentation/vblank. Render distance is reduced for split-screen; automatic frame-time quality scaling is still to be reimplemented.

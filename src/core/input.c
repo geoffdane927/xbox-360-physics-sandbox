@@ -1,12 +1,9 @@
 #include "game/game.h"
-#include <string.h>
-
 static float axis(int16_t value, int16_t deadzone)
 {
     if (value > -deadzone && value < deadzone) return 0.0f;
     return bw_clampf((float)value / 32767.0f, -1.0f, 1.0f);
 }
-
 void bw_input_poll(BwGame *game)
 {
     int count = 0;
@@ -26,6 +23,7 @@ void bw_input_poll(BwGame *game)
         BW_EDGE(pressed_x, INPUT_GAMEPAD_X);
         BW_EDGE(pressed_back, INPUT_GAMEPAD_BACK);
         BW_EDGE(pressed_start, INPUT_GAMEPAD_START);
+        BW_EDGE(pressed_guide, INPUT_GAMEPAD_GUIDE);
         BW_EDGE(pressed_left, INPUT_GAMEPAD_DPAD_LEFT);
         BW_EDGE(pressed_right, INPUT_GAMEPAD_DPAD_RIGHT);
 #undef BW_EDGE
