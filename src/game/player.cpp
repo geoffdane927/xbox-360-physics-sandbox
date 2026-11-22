@@ -14,7 +14,8 @@ static void place_block(BwGame *g,BwPlayer *p)
  pos.x=floorf(pos.x+0.5f);pos.z=floorf(pos.z+0.5f);BwBlock candidate(pos,0.5f,0);
  if(!bw_player_overlaps_block(p->position.x,p->position.y-BW_EYE_HEIGHT,p->position.z,&candidate))bw_world_add_block(g,pos,0.5f,bw_slot_colors[p->selected_slot]);
 }
-static bool npc_has_shot_rule(const BwGame *g,int n);\nstatic void update_one(BwGame *g,int i,float dt)
+static bool npc_has_shot_rule(const BwGame *g,int n);
+static void update_one(BwGame *g,int i,float dt)
 {
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
