@@ -3,7 +3,7 @@ BwGame g_game;
 static int object_count(const BwGame *g,int type){if(type==BW_OWNER_NPC)return g->npc_count;if(type==BW_OWNER_PROP)return g->prop_count;if(type==BW_OWNER_BLOCK)return g->block_count;if(type==BW_OWNER_PICKUP)return g->pickup_count;return 1;}
 static int target_count(const BwGame *g,int type){if(type==0)return BW_MAX_PLAYERS;if(type==1)return g->npc_count;if(type==2)return g->prop_count;if(type==3)return g->block_count;return g->pickup_count;}
 int main(){
- ZeroMemory(&g_game,sizeof(g_game));g_game.editor_mode=true;g_game.show_grid=true;g_game.running=true;g_game.render_distance=512;g_game.player_speed=5;g_game.jump_height=1.5f;g_game.gravity=18;g_game.spawn_point=BwVec3(0,BW_EYE_HEIGHT,-8);g_game.quality_scale=1;g_game.fps_average=60;g_game.script_owner_type=BW_OWNER_PLAYER;g_game.script_condition=BW_IF_SEE_PLAYER;g_game.script_action=BW_DO_CUSTOM_WEAPON;g_game.script_target_type=0;g_game.script_target_index=0;g_game.script_summon_type=0;
+ ZeroMemory(&g_game,sizeof(g_game));g_game.editor_mode=true;g_game.show_grid=true;g_game.running=true;g_game.render_distance=512;g_game.player_speed=5;g_game.jump_height=1.5f;g_game.gravity=18;g_game.spawn_point=BwVec3(0,BW_EYE_HEIGHT,-8);g_game.quality_scale=1;g_game.fps_average=60;g_game.script_owner_type=BW_OWNER_PLAYER;g_game.script_condition=BW_IF_SEE_PLAYER;g_game.script_action=BW_DO_CUSTOM_WEAPON;g_game.script_target_type=0;g_game.script_target_index=0;g_game.script_summon_type=0;g_game.script_rule_index=0;
  for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8);g_game.players[i].grounded=true;g_game.players[i].was_grounded=true;g_game.active_slots[i]=i;g_game.pads[i].joined=(i==0);}
  bw_world_init(&g_game);if(!bw_renderer_open())return 1;DWORD last=GetTickCount();
  while(g_game.running){
@@ -14,11 +14,11 @@ int main(){
     else if(i==0&&g_game.editor_mode&&!g_game.paused){bw_editor_select_object(&g_game,i);}
     else if(!g_game.editor_mode)g_game.running=false;
    }
-   if(i==0&&pad->pressed_start&&!g_game.paused){g_game.paused=true;g_game.script_editor=false;g_game.script_owner_type=BW_OWNER_PLAYER;g_game.script_owner=0;g_game.menu_selection=0;}
+   if(i==0&&pad->pressed_start&&!g_game.paused){g_game.paused=true;g_game.script_editor=false;g_game.script_owner_type=BW_OWNER_PLAYER;g_game.script_owner=0;g_game.script_rule_index=0;g_game.menu_selection=0;}
    if(g_game.paused&&i==0){
     if(pad->pressed_b){g_game.paused=false;g_game.script_editor=false;}
-    if(pad->pressed_up)g_game.menu_selection=(g_game.menu_selection+19)%20;
-    if(pad->pressed_down)g_game.menu_selection=(g_game.menu_selection+1)%20;
+    if(pad->pressed_up)g_game.menu_selection=(g_game.menu_selection+22)%23;
+    if(pad->pressed_down)g_game.menu_selection=(g_game.menu_selection+1)%23;
     int row=g_game.menu_selection;
     if(row==3){if(pad->pressed_left)g_game.render_distance=bw_clamp(g_game.render_distance-64,64,2048);if(pad->pressed_right)g_game.render_distance=bw_clamp(g_game.render_distance+64,64,2048);}
     else if(row==4){if(pad->pressed_left)g_game.player_speed=bw_clamp(g_game.player_speed-.5f,1,20);if(pad->pressed_right)g_game.player_speed=bw_clamp(g_game.player_speed+.5f,1,20);}
@@ -30,7 +30,7 @@ int main(){
     else if(row==15){if(pad->pressed_left)g_game.script_action=(g_game.script_action+11)%12;if(pad->pressed_right)g_game.script_action=(g_game.script_action+1)%12;}
     else if(row==16){if(pad->pressed_left)g_game.script_target_type=(g_game.script_target_type+4)%5;if(pad->pressed_right)g_game.script_target_type=(g_game.script_target_type+1)%5;int n=target_count(&g_game,g_game.script_target_type);if(n<=0)g_game.script_target_index=0;else if(g_game.script_target_index>=n)g_game.script_target_index=n-1;}
     else if(row==17){int n=object_count(&g_game,g_game.script_target_type);if(n<1)n=1;if(pad->pressed_left)g_game.script_target_index=(g_game.script_target_index+n-1)%n;if(pad->pressed_right)g_game.script_target_index=(g_game.script_target_index+1)%n;}
-    else if(row==18){if(pad->pressed_left)g_game.script_summon_type=(g_game.script_summon_type+3)%4;if(pad->pressed_right)g_game.script_summon_type=(g_game.script_summon_type+1)%4;}
+    else if(row==18){if(pad->pressed_left)g_game.script_summon_type=(g_game.script_summon_type+3)%4;if(pad->pressed_right)g_game.script_summon_type=(g_game.script_summon_type+1)%4;}\n    else if(row==20){int count=0;for(int q=0;q<g_game.rule_count;++q)if(g_game.rules[q].active&&g_game.rules[q].owner_type==g_game.script_owner_type&&g_game.rules[q].owner==g_game.script_owner)++count;if(count>0){if(pad->pressed_left)g_game.script_rule_index=(g_game.script_rule_index+count-1)%count;if(pad->pressed_right)g_game.script_rule_index=(g_game.script_rule_index+1)%count;}else g_game.script_rule_index=0;}
     if(pad->pressed_a){
      if(row==0){g_game.paused=false;g_game.script_editor=false;}
      else if(row==1)g_game.editor_mode=!g_game.editor_mode;
@@ -38,7 +38,7 @@ int main(){
      else if(row==10)g_game.spawn_point=g_game.players[i].position;
      else if(row==11)g_game.save_status=bw_world_save(&g_game)?1:-1;
      else if(row==12)g_game.save_status=bw_world_load(&g_game)?2:-2;
-     else if(row==19&&g_game.rule_count<BW_MAX_RULES){BwRule *rule=&g_game.rules[g_game.rule_count++];rule->owner_type=g_game.script_owner_type;rule->owner=g_game.script_owner;rule->condition=g_game.script_condition;rule->action=g_game.script_action;rule->target_type=g_game.script_target_type;rule->target_index=g_game.script_target_index;rule->parameter=g_game.script_summon_type;rule->active=true;rule->was_triggered=false;}
+     else if(row==19&&g_game.rule_count<BW_MAX_RULES){BwRule *rule=&g_game.rules[g_game.rule_count++];rule->owner_type=g_game.script_owner_type;rule->owner=g_game.script_owner;rule->condition=g_game.script_condition;rule->action=g_game.script_action;rule->target_type=g_game.script_target_type;rule->target_index=g_game.script_target_index;rule->parameter=g_game.script_summon_type;rule->active=true;rule->was_triggered=false;rule->timer=0.0f;}\n     else if(row==21||row==22){int found=-1,index=0;for(int q=0;q<g_game.rule_count;++q)if(g_game.rules[q].active&&g_game.rules[q].owner_type==g_game.script_owner_type&&g_game.rules[q].owner==g_game.script_owner){if(index==g_game.script_rule_index){found=q;break;}++index;}if(found>=0){if(row==21){BwRule *rule=&g_game.rules[found];rule->condition=g_game.script_condition;rule->action=g_game.script_action;rule->target_type=g_game.script_target_type;rule->target_index=g_game.script_target_index;rule->parameter=g_game.script_summon_type;rule->was_triggered=false;rule->timer=0.0f;}else{for(int q=found;q<g_game.rule_count-1;++q)g_game.rules[q]=g_game.rules[q+1];--g_game.rule_count;if(g_game.script_rule_index>0)--g_game.script_rule_index;}}}
     }
    }else if(pad->pressed_back)g_game.editor_mode=!g_game.editor_mode;
   }
