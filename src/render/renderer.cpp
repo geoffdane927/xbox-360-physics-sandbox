@@ -75,8 +75,7 @@ static void controls_menu(const BwGame *g){
  menu_rect(205,96,870,5,accent);
  menu_text(235,118,"PAUSED",5,white);
  const char *labels[4]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE"};
- char value[32]; int n=(int)g->render_distance;
- value[0]=0;
+ int n=(int)g->render_distance;
  for(int i=0;i<4;++i){
   float y=190.0f+i*48.0f;
   if(g->menu_selection==i)menu_rect(220,y-8,510,38,selected);
@@ -84,15 +83,15 @@ static void controls_menu(const BwGame *g){
   if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",3,white);
   if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",3,white);
   if(i==3){
-   int hundreds=n/100, tens=(n/10)%10, ones=n%10;
-   char digits[4];digits[0]=(char)('0'+hundreds);digits[1]=(char)('0'+tens);digits[2]=(char)('0'+ones);digits[3]=0;
+   int thousands=(n/1000)%10, hundreds=(n/100)%10, tens=(n/10)%10, ones=n%10;
+   char digits[5];digits[0]=(char)('0'+thousands);digits[1]=(char)('0'+hundreds);digits[2]=(char)('0'+tens);digits[3]=(char)('0'+ones);digits[4]=0;
    menu_text(520,y,digits,3,white);
   }
  }
  menu_text(790,190,"CONTROLS",3,accent);
  menu_text(790,230,"LEFT STICK MOVE",2,white);
  menu_text(790,258,"RIGHT STICK LOOK",2,white);
- menu_text(790,286,"BACK MODE",2,white);
+ menu_text(790,286,"BACK PAUSE MODE",2,white);
  menu_text(790,314,"Y EXIT",2,white);
  menu_text(790,360,"PLAYER",2,accent);
  menu_text(790,388,"A JUMP",2,white);

@@ -26,10 +26,10 @@ The project file is a starting point for the legacy XDK MSBuild platform. XDK ve
 ## Controls
 
 - Back toggles Editor / Player mode
-- Start opens/closes the controls menu (B also closes it while open)
+- Start opens/closes the pause menu. In the menu, D-pad up/down selects, A confirms, left/right changes the manual render distance, and B resumes.
 - Y exits
 - Left stick moves; right stick looks
-- Player mode: A jumps, X places a block, D-pad left/right selects color, Start resets player
+- Player mode: A jumps, X places a block, D-pad left/right selects color, Start opens the pause menu
 - Editor mode: triggers move vertically, A places a block, X removes the last block, B toggles grid, Start resets player
 
 Up to four connected controllers are supported. Split-screen is disabled by default and only activates when the split_screen game setting is explicitly enabled. Render distance starts at 512 world units and scales with player count and measured frame rate; the grid extends up to 256 units from the player. The character is an upright box with basic gravity and AABB collision, not a ragdoll.
