@@ -1,6 +1,13 @@
 #include "game/game.h"
 #include <math.h>
 static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->grounded=true;}
+static BwVec3 editor_place_position(const BwPlayer *p)
+{
+ float fx=sinf(p->yaw),fz=cosf(p->yaw);
+ BwVec3 q(p->position.x+fx*4.0f,p->position.y-0.5f,p->position.z+fz*4.0f);
+ q.x=floorf(q.x+0.5f);q.y=floorf(q.y+0.5f)+0.5f;q.z=floorf(q.z+0.5f);
+ return q;
+}
 static void place_block(BwGame *g,BwPlayer *p)
 {
  float fx=sinf(p->yaw),fz=cosf(p->yaw);BwVec3 pos(p->position.x+fx*3.0f,0.5f,p->position.z+fz*3.0f);
@@ -10,21 +17,32 @@ static void place_block(BwGame *g,BwPlayer *p)
 static void update_one(BwGame *g,int i,float dt)
 {
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
+ if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
+ if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch-pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
   p->position.x+=dx;p->position.z+=dz;p->position.y+=(pad->rt-pad->lt)*speed*dt;
-  if(pad->pressed_a){BwVec3 q(p->position.x+fx*4.0f,p->position.y-0.5f,p->position.z+fz*4.0f);q.x=floorf(q.x+0.5f);q.y=floorf(q.y+0.5f);q.z=floorf(q.z+0.5f);bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);}
+  if(pad->pressed_lthumb)g->placing_spikes=!g->placing_spikes;
+  if(pad->pressed_a){
+   BwVec3 q=editor_place_position(p);
+   if(g->placing_spikes)bw_world_add_spike(g,q);
+   else bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);
+  }
   if(pad->pressed_x&&g->block_count>0)--g->block_count;if(pad->pressed_b)g->show_grid=!g->show_grid;
  }else{
-  float feet=p->position.y-BW_EYE_HEIGHT,nx=p->position.x+dx,nz=p->position.z+dz;
+  float feet=p->position.y-BW_EYE_HEIGHT;
+  if(bw_player_touches_spike(g,p->position.x,feet,p->position.z)){
+   p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;feet=p->position.y-BW_EYE_HEIGHT;
+  }
+  float nx=p->position.x+dx,nz=p->position.z+dz;
   if(!bw_player_collides(g,nx,feet,p->position.z))p->position.x=nx;if(!bw_player_collides(g,p->position.x,feet,nz))p->position.z=nz;
   if(pad->pressed_a&&p->grounded){p->vertical_velocity=sqrtf(2.0f*g->gravity*g->jump_height);p->grounded=false;}
   p->vertical_velocity-=g->gravity*dt;float next=feet+p->vertical_velocity*dt;bool landed=false;
   if(p->vertical_velocity<=0.0f){
    float landing=(feet>=0.0f&&next<=0.0f)?0.0f:-100000.0f;
-   for(int b=0;b<g->block_count;++b){const BwBlock *block=&g->blocks[b];float top=block->position.y+block->half;
+   for(int b=0;b<g->block_count;++b){const BwBlock *block=&g->blocks[b];if(block->spike)continue;float top=block->position.y+block->half;
     bool overlap=p->position.x+BW_PLAYER_RADIUS>block->position.x-block->half&&p->position.x-BW_PLAYER_RADIUS<block->position.x+block->half&&p->position.z+BW_PLAYER_RADIUS>block->position.z-block->half&&p->position.z-BW_PLAYER_RADIUS<block->position.z+block->half;
     if(overlap&&feet>=top-0.02f&&next<=top&&top>landing)landing=top;
    }
@@ -32,8 +50,9 @@ static void update_one(BwGame *g,int i,float dt)
   }
   if(!landed){p->grounded=false;if(p->vertical_velocity>0.0f&&bw_player_collides(g,p->position.x,next,p->position.z)){next=feet;p->vertical_velocity=0.0f;}}
   p->position.y=next+BW_EYE_HEIGHT;
-  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
-  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
+  if(bw_player_touches_spike(g,p->position.x,next,p->position.z)){
+   p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;
+  }
   if(pad->pressed_x)place_block(g,p);
  }
 

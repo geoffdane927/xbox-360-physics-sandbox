@@ -30,9 +30,10 @@ The project file is a starting point for the legacy XDK MSBuild platform. XDK ve
 - Y exits
 - Left stick moves; right stick looks
 - Player mode: A jumps, X places a block, D-pad left/right selects color, Start opens the pause menu
-- Editor mode: triggers move vertically, A places a block, X removes the last block, B toggles grid, Start resets player
+- Editor mode: triggers move vertically, A places the selected block/spike, X removes the last placed object, B toggles grid, left-stick click toggles spike placement. D-pad left/right selects block color in either mode.
+- Pause menu: use Spawn X/Y/Z to adjust the shared respawn point, or select SET SPAWN HERE to copy your current position. A flag marks the spawn point. Spikes kill players on contact and respawn them at that point.
 
-Up to four connected controllers are supported. Split-screen is disabled by default and only activates when the split_screen game setting is explicitly enabled. Render distance starts at 512 world units and scales with player count and measured frame rate; the grid extends up to 256 units from the player. The character is an upright box with basic gravity and AABB collision, not a ragdoll.
+Up to four connected controllers are supported. Split-screen is disabled by default and only activates when the split_screen game setting is explicitly enabled. Render distance starts at 512 world units and scales with player count and measured frame rate; the grid extends up to 256 units from the player. New worlds start empty. The character is an upright box with basic gravity and AABB collision, not a ragdoll.
 
 ## Limitations
 

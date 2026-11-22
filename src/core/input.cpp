@@ -19,6 +19,7 @@ void bw_input_poll(BwGame *game)
         EDGE(pressed_back,XINPUT_GAMEPAD_BACK); EDGE(pressed_start,XINPUT_GAMEPAD_START);
         EDGE(pressed_left,XINPUT_GAMEPAD_DPAD_LEFT); EDGE(pressed_right,XINPUT_GAMEPAD_DPAD_RIGHT);
         EDGE(pressed_up,XINPUT_GAMEPAD_DPAD_UP); EDGE(pressed_down,XINPUT_GAMEPAD_DPAD_DOWN);
+        EDGE(pressed_lthumb,XINPUT_GAMEPAD_LEFT_THUMB);
 #undef EDGE
         p->lx=axis_value(p->current.sThumbLX,XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
         p->ly=axis_value(p->current.sThumbLY,XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);

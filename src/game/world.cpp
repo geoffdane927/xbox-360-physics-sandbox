@@ -6,10 +6,13 @@ const DWORD bw_slot_colors[BW_INVENTORY_SLOTS]={
  D3DCOLOR_ARGB(255,100,190,210),D3DCOLOR_ARGB(255,145,175,100)
 };
 void bw_world_add_block(BwGame *g,BwVec3 p,float h,DWORD c){if(g->block_count>=BW_MAX_BLOCKS)return;g->blocks[g->block_count++]=BwBlock(p,h,c);}
+void bw_world_add_spike(BwGame *g,BwVec3 p){
+ if(g->block_count>=BW_MAX_BLOCKS)return;
+ BwBlock b(p,0.5f,D3DCOLOR_ARGB(255,190,65,65));b.spike=true;
+ g->blocks[g->block_count++]=b;
+}
 void bw_world_init(BwGame *g)
 {
  g->block_count=0;
- bw_world_add_block(g,BwVec3(0.0f,0.5f,4.0f),0.5f,bw_slot_colors[0]);
- bw_world_add_block(g,BwVec3(2.5f,0.5f,5.0f),0.5f,bw_slot_colors[1]);
- bw_world_add_block(g,BwVec3(-2.0f,1.0f,5.0f),1.0f,bw_slot_colors[2]);
+ g->placing_spikes=false;
 }
