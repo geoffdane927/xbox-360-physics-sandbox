@@ -1,5 +1,6 @@
 #include "game/game.h"
 #include <stdio.h>
+#include <stdio.h>
 const DWORD bw_slot_colors[BW_INVENTORY_SLOTS]={
  D3DCOLOR_ARGB(255,90,205,155),D3DCOLOR_ARGB(255,90,160,235),
  D3DCOLOR_ARGB(255,220,170,75),D3DCOLOR_ARGB(255,190,100,210),
@@ -54,3 +55,8 @@ bool bw_world_load(BwGame *g){
  fclose(f);if(!ok)return false;
  g->block_count=(int)h.blocks;g->pickup_count=(int)h.pickups;g->npc_count=(int)h.npcs;g->prop_count=(int)h.props;g->rule_count=(int)h.rules;return true;
 }
+
+#define BW_SAVE_MAGIC 0x42573536
+struct BwSaveData { DWORD magic; int version,block_count,pickup_count,npc_count; BwVec3 spawn_point; float player_speed,jump_height,gravity; BwBlock blocks[BW_MAX_BLOCKS]; BwPickup pickups[32]; BwNpc npcs[8]; };
+bool bw_world_save(const BwGame *g){FILE *f=fopen("T:\\BlockWorks360.sav","wb");if(!f)return false;BwSaveData d;ZeroMemory(&d,sizeof(d));d.magic=BW_SAVE_MAGIC;d.version=1;d.block_count=g->block_count;d.pickup_count=g->pickup_count;d.npc_count=g->npc_count;d.spawn_point=g->spawn_point;d.player_speed=g->player_speed;d.jump_height=g->jump_height;d.gravity=g->gravity;for(int i=0;i<d.block_count;++i)d.blocks[i]=g->blocks[i];for(int i=0;i<d.pickup_count;++i)d.pickups[i]=g->pickups[i];for(int i=0;i<d.npc_count;++i)d.npcs[i]=g->npcs[i];bool ok=fwrite(&d,sizeof(d),1,f)==1;fclose(f);return ok;}
+bool bw_world_load(BwGame *g){FILE *f=fopen("T:\\BlockWorks360.sav","rb");if(!f)return false;BwSaveData d;bool ok=fread(&d,sizeof(d),1,f)==1;fclose(f);if(!ok||d.magic!=BW_SAVE_MAGIC||d.version!=1||d.block_count<0||d.block_count>BW_MAX_BLOCKS||d.pickup_count<0||d.pickup_count>32||d.npc_count<0||d.npc_count>8)return false;g->block_count=d.block_count;g->pickup_count=d.pickup_count;g->npc_count=d.npc_count;g->spawn_point=d.spawn_point;g->player_speed=d.player_speed;g->jump_height=d.jump_height;g->gravity=d.gravity;for(int i=0;i<d.block_count;++i)g->blocks[i]=d.blocks[i];for(int i=0;i<d.pickup_count;++i)g->pickups[i]=d.pickups[i];for(int i=0;i<d.npc_count;++i)g->npcs[i]=d.npcs[i];return true;}

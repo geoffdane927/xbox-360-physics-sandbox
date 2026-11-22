@@ -87,9 +87,9 @@ static void controls_menu(const BwGame *g){
  menu_n=0;DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
  DWORD panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205),selected=D3DCOLOR_ARGB(255,28,65,98);
  menu_rect(180,70,920,590,panel);menu_rect(205,96,870,5,accent);menu_text(235,112,"PAUSED",4,white);
- const char *labels[11]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY","SPAWN X","SPAWN Y","SPAWN Z","SET SPAWN HERE"};
- for(int i=0;i<11;++i){
-  float y=164.0f+i*34.0f;if(g->menu_selection==i)menu_rect(220,y-5,510,30,selected);
+ const char *labels[13]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY","SPAWN X","SPAWN Y","SPAWN Z","SET SPAWN HERE","SAVE GAME","LOAD GAME"};
+ for(int i=0;i<13;++i){
+  float y=150.0f+i*29.0f;if(g->menu_selection==i)menu_rect(220,y-5,510,30,selected);
   menu_text(240,y,labels[i],2,g->menu_selection==i?white:muted);
   if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",2,white);
   if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",2,white);
@@ -212,7 +212,7 @@ static void scene(const BwGame *g,int slot,int detail){
  }
  for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
  for(int q=0;q<g->pickup_count;++q)if(g->pickups[q].active)box(g->pickups[q].position,v3(.22f,.22f,.22f),g->pickups[q].type==1?D3DCOLOR_ARGB(255,60,170,255):D3DCOLOR_ARGB(255,210,210,220));
- for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
+ for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->color?a->color:(a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
   /* The active camera is positioned at eye height inside its own body.
@@ -329,7 +329,7 @@ bool bw_renderer_open(void){
 
 void bw_renderer_draw(const BwGame *g){
  if(!dev)return;
- if(g->paused){
+ if(g->script_mode){dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);if(SUCCEEDED(dev->BeginScene())){menu_n=0;menu_rect(250,120,780,480,D3DCOLOR_ARGB(255,12,20,32));menu_text(290,155,"KODU RULE EDITOR",4,D3DCOLOR_ARGB(255,235,242,250));const char *cs[6]={"SEE PLAYER","BUMP WALL COLOR","SHOT","TOUCH PLAYER","TIMER","NEAR OBJECT"};const char *as[10]={"MOVE TOWARD","MOVE BACKWARD","SET GREEN","DISAPPEAR","SHOOT","JUMP","TURN","STOP","RESPAWN","MOVE RANDOM"};menu_text(300,230,"DPAD NPC LB RB RULE",2,D3DCOLOR_ARGB(255,150,190,230));menu_text(300,270,"A NEXT CONDITION X NEXT ACTION",2,D3DCOLOR_ARGB(255,150,190,230));menu_text(300,310,"B ENABLE/DISABLE",2,D3DCOLOR_ARGB(255,150,190,230));if(g->npc_count){const BwRule *q=&g->npcs[g->script_npc].rules[g->script_rule];menu_text(300,380,cs[q->condition%6],3,D3DCOLOR_ARGB(255,100,220,150));menu_text(300,430,as[q->action%10],3,D3DCOLOR_ARGB(255,255,210,110));menu_text(300,490,q->enabled?"RULE ENABLED":"RULE DISABLED",2,D3DCOLOR_ARGB(255,235,242,250));}menu_text(300,555,"RIGHT STICK CLICK TO CLOSE",2,D3DCOLOR_ARGB(255,235,242,250));if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));dev->EndScene();dev->Present(0,0,0,0);}return;}if(g->paused){
   dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);
   if(SUCCEEDED(dev->BeginScene())){controls_menu(g);dev->EndScene();dev->Present(0,0,0,0);}
   return;
