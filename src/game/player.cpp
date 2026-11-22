@@ -83,7 +83,7 @@ static void summon_from_rule(BwGame *g,const BwRule *r,BwVec3 at){
  else{bw_world_add_npc(g,at,type==0?0:(type==1?1:2));newIndex=g->npc_count-1;}
  if(newIndex<0)return;
  BwRule copies[BW_MAX_RULES];int count=0;
- for(int i=0;i<g->rule_count&&count<BW_MAX_RULES;++i)if(&g->rules[i]!=r&&g->rules[i].active&&g->rules[i].owner_type==r->owner_type&&g->rules[i].owner==r->owner)copies[count++]=g->rules[i];
+ for(int i=0;i<g->rule_count&&count<BW_MAX_RULES;++i)if(&g->rules[i]!=r&&g->rules[i].active&&g->rules[i].action!=BW_DO_SUMMON&&g->rules[i].owner_type==r->owner_type&&g->rules[i].owner==r->owner)copies[count++]=g->rules[i];
  for(int i=0;i<count&&g->rule_count<BW_MAX_RULES;++i){BwRule *dst=&g->rules[g->rule_count++];*dst=copies[i];dst->owner_type=newOwnerType;dst->owner=newIndex;dst->was_triggered=false;}
 }
 static void run_player_rules(BwGame *g,int i,bool wasGrounded,float dt){
