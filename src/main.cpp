@@ -1,6 +1,7 @@
 #include "game/game.h"
 BwGame g_game;
 static int object_count(const BwGame *g,int type){if(type==BW_OWNER_NPC)return g->npc_count;if(type==BW_OWNER_PROP)return g->prop_count;if(type==BW_OWNER_BLOCK)return g->block_count;if(type==BW_OWNER_PICKUP)return g->pickup_count;return 1;}
+static int target_count(const BwGame *g,int type){if(type==0)return BW_MAX_PLAYERS;if(type==1)return g->npc_count;if(type==2)return g->prop_count;if(type==3)return g->block_count;return g->pickup_count;}
 int main(){
  ZeroMemory(&g_game,sizeof(g_game));g_game.editor_mode=true;g_game.show_grid=true;g_game.running=true;g_game.render_distance=512;g_game.player_speed=5;g_game.jump_height=1.5f;g_game.gravity=18;g_game.spawn_point=BwVec3(0,BW_EYE_HEIGHT,-8);g_game.quality_scale=1;g_game.fps_average=60;g_game.script_owner_type=BW_OWNER_PLAYER;g_game.script_condition=BW_IF_SEE_PLAYER;g_game.script_action=BW_DO_CUSTOM_WEAPON;g_game.script_target_type=0;g_game.script_target_index=0;g_game.script_summon_type=0;
  for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8);g_game.players[i].grounded=true;g_game.players[i].was_grounded=true;g_game.active_slots[i]=i;g_game.pads[i].joined=(i==0);}
@@ -27,7 +28,7 @@ int main(){
     else if(row==13){if(pad->pressed_left)g_game.script_owner_type=(g_game.script_owner_type+4)%5;if(pad->pressed_right)g_game.script_owner_type=(g_game.script_owner_type+1)%5;int n=object_count(&g_game,g_game.script_owner_type);if(g_game.script_owner_type==BW_OWNER_PLAYER)g_game.script_owner=0;else if(n<=0)g_game.script_owner=0;else if(g_game.script_owner>=n)g_game.script_owner=n-1;}
     else if(row==14){if(pad->pressed_left)g_game.script_condition=(g_game.script_condition+11)%12;if(pad->pressed_right)g_game.script_condition=(g_game.script_condition+1)%12;}
     else if(row==15){if(pad->pressed_left)g_game.script_action=(g_game.script_action+11)%12;if(pad->pressed_right)g_game.script_action=(g_game.script_action+1)%12;}
-    else if(row==16){if(pad->pressed_left)g_game.script_target_type=(g_game.script_target_type+4)%5;if(pad->pressed_right)g_game.script_target_type=(g_game.script_target_type+1)%5;int n=object_count(&g_game,g_game.script_target_type);if(n<=0)g_game.script_target_index=0;else if(g_game.script_target_index>=n)g_game.script_target_index=n-1;}
+    else if(row==16){if(pad->pressed_left)g_game.script_target_type=(g_game.script_target_type+4)%5;if(pad->pressed_right)g_game.script_target_type=(g_game.script_target_type+1)%5;int n=target_count(&g_game,g_game.script_target_type);if(n<=0)g_game.script_target_index=0;else if(g_game.script_target_index>=n)g_game.script_target_index=n-1;}
     else if(row==17){int n=object_count(&g_game,g_game.script_target_type);if(n<1)n=1;if(pad->pressed_left)g_game.script_target_index=(g_game.script_target_index+n-1)%n;if(pad->pressed_right)g_game.script_target_index=(g_game.script_target_index+1)%n;}
     else if(row==18){if(pad->pressed_left)g_game.script_summon_type=(g_game.script_summon_type+3)%4;if(pad->pressed_right)g_game.script_summon_type=(g_game.script_summon_type+1)%4;}
     if(pad->pressed_a){

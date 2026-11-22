@@ -2,43 +2,42 @@
 
 Native Xbox 360 sandbox/editor using the Xbox 360 XDK, Direct3D 9 and XInput.
 
-## Editor
+## Editor and object scripts
 
-- Left-stick click switches between two hotbar pages.
-- Page 1 — Blocks: eight block colors. D-pad left/right or LB/RB selects a color.
-- Page 2 — Objects: spike, blaster pickup, sword pickup, checkpoint, friendly NPC, sword enemy, blaster enemy, and pushable crate.
-- A places the selected item; X removes the most recently added block (or deactivates the most recent crate); B toggles the grid.
-- Back switches Editor/Player. Triggers move vertically in the editor.
+- Left-stick click switches between Blocks and Objects hotbar pages.
+- Aim at an NPC, crate, block, spike, or pickup and press Y to open that object's script editor.
+- The script editor starts with the selected object as the rule owner. Press B or Y to close it.
+- Use D-pad up/down to move through the menu, left/right to change values, and A to add a rule.
+- You can also open Pause with Start and choose PLAYER as the script owner to create player rules.
+
+## Script conditions
+
+SEE PLAYER, BUMP GREEN, GET SHOT, TOUCH PLAYER, TIMER, NEAR ITEM, ON DEATH, ON FALL, ON STOP FALLING, ON LAND, ON JUMP, ON USE.
+
+## Script actions
+
+MOVE TOWARD, MOVE BACK, TURN AROUND, CHANGE GREEN, DISAPPEAR, RESPAWN, JUMP, SHOOT, MOVE CAMERA, SUMMON, PLACE BLOCK, CUSTOM WEAPON.
+
+MOVE TOWARD has a target type and target index selector (player, NPC, crate, block, pickup). SUMMON selects a template (friendly NPC, sword NPC, blaster NPC, crate). Summoned NPCs/crates inherit the source object's other script rules, so you can make scripted reusable actors.
+
+Player scripts support camera-direction movement, jumping, respawning, placing blocks, summoning scripted actors, and custom projectile weapons. Example: set owner to PLAYER, IF to ON USE, DO to CUSTOM WEAPON.
+
+Examples:
+- IF SEE PLAYER -> MOVE TOWARD (target PLAYER)
+- IF BUMP GREEN -> MOVE BACK
+- IF GET SHOT -> DISAPPEAR
+- IF ON FALL -> MOVE CAMERA
+- IF ON USE -> CUSTOM WEAPON
+- IF TIMER -> SUMMON (choose a template)
 
 ## Physics and play
 
-- Players jump, collide with blocks, collect weapons, and use weapon durability.
-- Crates fall under gravity, land on the floor/blocks, and can be pushed by walking into them.
-- Spikes respawn players at the checkpoint.
-- Friendly NPCs follow; enemy NPCs chase or fire projectiles.
-- Additional controllers press Start to join and receive split-screen views.
-
-## Kodu-style rules
-
-Open the pause menu with Start. Use D-pad up/down to choose a row and left/right to change values. The script rows let you select an NPC, choose an IF condition, choose a DO action, then select ADD RULE.
-
-Conditions: SEE PLAYER, BUMP GREEN WALL, GET SHOT, TOUCH PLAYER, TIMER, NEAR ITEM.
-
-Actions: MOVE TOWARD, MOVE BACKWARD, TURN, CHANGE GREEN, DISAPPEAR, RESPAWN, JUMP, SHOOT.
-
-Examples:
-- IF SEE PLAYER -> MOVE TOWARD
-- IF BUMP GREEN WALL -> MOVE BACKWARD
-- IF GET SHOT -> DISAPPEAR
-
-Rules are evaluated while the world runs. Multiple rules can be assigned to the same NPC.
+Crates fall under gravity, land on the floor and blocks, and can be pushed. NPCs follow/chase or fire. Players can jump, collide, collect weapons, and use weapon durability. Spikes respawn players at the checkpoint.
 
 ## Saving
 
-The pause menu includes SAVE GAME and LOAD GAME. This development build writes to Hdd1:\\BlockWorks360.sav using the XDK CRT file API. It targets the persistent HDD volume used by a devkit/Xenia setup; it is not integrated with the retail Xbox 360 profile/device-selector save-game package system. Retail-ready saves require the XContent storage UI and content-package lifecycle.
+Pause includes SAVE GAME and LOAD GAME. The development save writes Hdd1:\\BlockWorks360.sav. The format version has been advanced for the expanded rule structure. This is intended for persistent devkit/Xenia HDD storage, not retail profile-based storage packages.
 
 ## Build
 
-Open BlockWorks360.vcxproj in Visual Studio 2010 with the Xbox 360 XDK platform installed. Build Release | Xbox 360.
-
-The source has not been compiled or tested with the user's XDK/Xenia in this session.
+Open BlockWorks360.vcxproj in Visual Studio 2010 with the Xbox 360 XDK installed. Build Release | Xbox 360. Source changes have not been compiled or tested in the XDK or Xenia in this session.
