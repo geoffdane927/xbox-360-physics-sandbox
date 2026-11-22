@@ -46,7 +46,7 @@ int main()
      if(g_game.menu_selection==0)g_game.paused=false;
      else if(g_game.menu_selection==1)g_game.editor_mode=!g_game.editor_mode;
      else if(g_game.menu_selection==2)g_game.automatic_render_distance=!g_game.automatic_render_distance;
-     else if(g_game.menu_selection==10)g_game.spawn_point=g_game.players[g_game.active_slots[i]].position;
+     else if(g_game.menu_selection==10)g_game.spawn_point=g_game.players[i].position;
     }
    }else if(pad->pressed_back)g_game.editor_mode=!g_game.editor_mode;
   }
