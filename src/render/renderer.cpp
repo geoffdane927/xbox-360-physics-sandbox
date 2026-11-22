@@ -5,6 +5,77 @@
 
 static const int SW=1280,SH=720,MAX_TRI=24576,MAX_LINE=8192;
 static const float PI=3.14159265358979323846f;
+static const unsigned char font5x7[37][5]={
+ {0x7e,0x11,0x11,0x11,0x7e}, {0x7f,0x49,0x49,0x49,0x36},
+ {0x3e,0x41,0x41,0x41,0x22}, {0x7f,0x41,0x41,0x22,0x1c},
+ {0x7f,0x49,0x49,0x49,0x41}, {0x7f,0x09,0x09,0x09,0x01},
+ {0x3e,0x41,0x49,0x49,0x7a}, {0x7f,0x08,0x08,0x08,0x7f},
+ {0x00,0x41,0x7f,0x41,0x00}, {0x20,0x40,0x41,0x3f,0x01},
+ {0x7f,0x08,0x14,0x22,0x41}, {0x7f,0x40,0x40,0x40,0x40},
+ {0x7f,0x02,0x0c,0x02,0x7f}, {0x7f,0x04,0x08,0x10,0x7f},
+ {0x3e,0x41,0x41,0x41,0x3e}, {0x7f,0x09,0x09,0x09,0x06},
+ {0x3e,0x41,0x51,0x21,0x5e}, {0x7f,0x09,0x19,0x29,0x46},
+ {0x26,0x49,0x49,0x49,0x32}, {0x01,0x01,0x7f,0x01,0x01},
+ {0x3f,0x40,0x40,0x40,0x3f}, {0x1f,0x20,0x40,0x20,0x1f},
+ {0x3f,0x40,0x38,0x40,0x3f}, {0x63,0x14,0x08,0x14,0x63},
+ {0x07,0x08,0x70,0x08,0x07}, {0x61,0x51,0x49,0x45,0x43},
+ {0x3e,0x51,0x49,0x45,0x3e}, {0x00,0x42,0x7f,0x40,0x00},
+ {0x62,0x51,0x49,0x49,0x46}, {0x22,0x41,0x49,0x49,0x36},
+ {0x18,0x14,0x12,0x7f,0x10}, {0x2f,0x49,0x49,0x49,0x31},
+ {0x3e,0x49,0x49,0x49,0x32}, {0x01,0x71,0x09,0x05,0x03},
+ {0x36,0x49,0x49,0x49,0x36}, {0x26,0x49,0x49,0x49,0x3e},
+ {0x00,0x36,0x36,0x00,0x00}
+};
+static int glyph_index(char c){
+ if(c>='A'&&c<='Z')return c-'A';
+ if(c>='0'&&c<='9')return 26+c-'0';
+ if(c==':')return 36;
+ return -1;
+}
+static Vtx menu_v[18000]; static int menu_n=0;
+static void menu_pixel(float x,float y,float scale,DWORD color){
+ if(menu_n+6>18000)return;
+ float l=(x/(float)SW)*2.0f-1.0f,r=((x+scale)/(float)SW)*2.0f-1.0f;
+ float t=1.0f-(y/(float)SH)*2.0f,b=1.0f-((y+scale)/(float)SH)*2.0f;
+ Vtx *v=&menu_v[menu_n];
+ const float px[6]={l,r,r,l,r,l},py[6]={t,t,b,t,b,b};
+ for(int i=0;i<6;++i){v[i].x=px[i];v[i].y=py[i];v[i].z=0;v[i].w=1;v[i].color=color;}
+ menu_n+=6;
+}
+static void menu_text(float x,float y,const char *s,float scale,DWORD color){
+ for(;*s;++s,x+=6*scale){int g=glyph_index(*s);if(g<0)continue;
+  for(int col=0;col<5;++col)for(int row=0;row<7;++row)
+   if(font5x7[g][col]&(1<<row))menu_pixel(x+col*scale,y+row*scale,scale,color);
+ }
+}
+static void controls_menu(){
+ menu_n=0;
+ DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
+ DWORD panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205);
+ /* Background panel, built as two triangles. */
+ menu_pixel(0,0,1,panel); /* keep the pixel batch initialized */
+ for(int y=118;y<604;y+=8)for(int x=280;x<1000;x+=8)menu_pixel((float)x,(float)y,8,panel);
+ for(int x=300;x<980;x+=4)menu_pixel((float)x,142,4,accent);
+ menu_text(430,160,"CONTROLS",5,white);
+ menu_text(330,220,"LEFT STICK MOVE",3,white);
+ menu_text(330,250,"RIGHT STICK LOOK",3,white);
+ menu_text(330,280,"BACK TOGGLE EDITOR PLAYER",3,white);
+ menu_text(330,310,"START OPEN CLOSE THIS MENU",3,white);
+ menu_text(330,340,"Y EXIT GAME",3,white);
+ menu_text(330,390,"PLAYER MODE",3,accent);
+ menu_text(330,420,"A JUMP   X PLACE BLOCK",3,white);
+ menu_text(330,450,"DPAD LEFT RIGHT SELECT COLOR",3,white);
+ menu_text(330,490,"EDITOR MODE",3,accent);
+ menu_text(330,520,"A PLACE   X REMOVE LAST BLOCK",3,white);
+ menu_text(330,550,"TRIGGERS UP DOWN   B GRID",3,white);
+ menu_text(330,580,"PRESS START OR B TO CLOSE",2,muted);
+ D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
+ dev->SetViewport(&full);
+ dev->SetRenderState(D3DRS_ZENABLE,FALSE);dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
+ if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
+ dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);dev->SetRenderState(D3DRS_ZENABLE,TRUE);
+}
+
 
 struct Vtx { float x,y,z,w; DWORD color; };
 struct View { int x,y,w,h; };
@@ -83,7 +154,9 @@ static bool make_shaders(){
 static void scene(const BwGame *g,int slot,int detail){
  nt=nl=0;
  const BwPlayer *cam=&g->players[slot];
- int radius=g->player_count==1?12:(g->player_count==2?8:5);
+ int radius=(int)g->render_distance;
+ if(radius>256)radius=256;
+ if(radius<24)radius=24;
  if(g->show_grid)for(int i=-radius;i<=radius;i+=detail){
   line(v3((float)i,0,-(float)radius),v3((float)i,0,(float)radius),D3DCOLOR_ARGB(255,45,57,70));
   line(v3(-(float)radius,0,(float)i),v3((float)radius,0,(float)i),D3DCOLOR_ARGB(255,45,57,70));
@@ -183,6 +256,11 @@ bool bw_renderer_open(void){
 
 void bw_renderer_draw(const BwGame *g){
  if(!dev)return;
+ if(g->controls_menu){
+  dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);
+  if(SUCCEEDED(dev->BeginScene())){controls_menu();dev->EndScene();dev->Present(0,0,0,0);}
+  return;
+ }
  int detail=g->quality_scale>.85f?1:(g->quality_scale>.70f?2:3);
  dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,16,22,32),1.0f,0);
  if(FAILED(dev->BeginScene()))return;

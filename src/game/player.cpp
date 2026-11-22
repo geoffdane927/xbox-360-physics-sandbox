@@ -36,7 +36,7 @@ static void update_one(BwGame *g,int i,float dt)
   if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
   if(pad->pressed_x)place_block(g,p);
  }
- if(pad->pressed_start)reset_player(p,i,g->editor_mode);
+
 }
 void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].connected||i==0)update_one(g,i,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
