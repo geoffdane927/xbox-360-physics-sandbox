@@ -132,6 +132,7 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=a->was_falling&&a->vertical_velocity==0.0f;
    else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float ix=g->pickups[k].position.x-a->position.x,iz=g->pickups[k].position.z-a->position.z;if(ix*ix+iz*iz<9.0f)trigger=true;}}
    if(!trigger){rule->was_triggered=false;continue;}scripted=true;
+   if(rule->action==BW_DO_SUMMON||rule->action==BW_DO_PLACE_BLOCK||rule->action==BW_DO_SHOOT||rule->action==BW_DO_CUSTOM_WEAPON){if(rule->was_triggered&&rule->condition!=BW_IF_TIMER)continue;rule->was_triggered=true;}
    BwVec3 goal;bool hasGoal=object_position(g,rule->target_type,rule->target_index,&goal);
    if(rule->action==BW_DO_MOVE_TOWARD&&hasGoal){float tx=goal.x-a->position.x,tz=goal.z-a->position.z,td=sqrtf(tx*tx+tz*tz);if(td>.01f){float nx=a->position.x+tx/td*2.0f*dt,nz=a->position.z+tz/td*2.0f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}}
    else if(rule->action==BW_DO_MOVE_BACKWARD){float nx=a->position.x-sinf(a->yaw)*2.0f*dt,nz=a->position.z-cosf(a->yaw)*2.0f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}
@@ -181,7 +182,7 @@ static void update_block_and_pickup_rules(BwGame *g,float dt){
   for(int t=0;t<g->player_count;++t){int pi=g->active_slots[t];float x=g->players[pi].position.x-at.x,z=g->players[pi].position.z-at.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;player=pi;}}
   if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<1.0f;else if(rule->condition==BW_IF_BUMP_GREEN&&rule->owner_type==BW_OWNER_BLOCK)trigger=g->blocks[rule->owner].color==bw_slot_colors[0];else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
   else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-at.x,z=g->pickups[k].position.z-at.z;if(x*x+z*z<9.0f)trigger=true;}}
-  if(!trigger){rule->was_triggered=false;continue;}BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
+  if(!trigger){rule->was_triggered=false;continue;}if(rule->action==BW_DO_SUMMON||rule->action==BW_DO_PLACE_BLOCK||rule->action==BW_DO_SHOOT||rule->action==BW_DO_CUSTOM_WEAPON){if(rule->was_triggered&&rule->condition!=BW_IF_TIMER)continue;rule->was_triggered=true;}BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
   if(rule->action==BW_DO_MOVE_TOWARD&&has){float x=target.x-at.x,z=target.z-at.z,d=sqrtf(x*x+z*z);if(d>.01f){at.x+=x/d*2.0f*dt;at.z+=z/d*2.0f*dt;set_object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,at);}}
   else if(rule->action==BW_DO_GREEN&&rule->owner_type==BW_OWNER_BLOCK)g->blocks[rule->owner].color=bw_slot_colors[0];
   else if(rule->action==BW_DO_DISAPPEAR&&rule->owner_type==BW_OWNER_BLOCK)g->blocks[rule->owner].color=0;
