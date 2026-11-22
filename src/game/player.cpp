@@ -1,6 +1,6 @@
 #include "game/game.h"
 #include <math.h>
-static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;}
+static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->hotbar_page=0;p->selected_item=0;}
 static BwVec3 editor_place_position(const BwPlayer *p)
 {
  float fx=sinf(p->yaw),fz=cosf(p->yaw);
@@ -19,16 +19,18 @@ static void update_one(BwGame *g,int i,float dt)
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
- if(pad->pressed_lthumb)g->entity_tab=!g->entity_tab;if((pad->current.wButtons&XINPUT_GAMEPAD_RIGHT_THUMB)&&!(pad->previous.wButtons&XINPUT_GAMEPAD_RIGHT_THUMB))g->script_mode=!g->script_mode;if(g->script_mode){if(pad->pressed_up&&g->npc_count)g->script_npc=(g->script_npc+g->npc_count-1)%g->npc_count;if(pad->pressed_down&&g->npc_count)g->script_npc=(g->script_npc+1)%g->npc_count;if(pad->pressed_lb)g->script_rule=(g->script_rule+3)%4;if(pad->pressed_rb)g->script_rule=(g->script_rule+1)%4;if(g->npc_count){BwRule *r=&g->npcs[g->script_npc].rules[g->script_rule];if(pad->pressed_a){r->condition=(r->condition+1)%6;r->enabled=true;}if(pad->pressed_x)r->action=(r->action+1)%10;if(pad->pressed_b)r->enabled=!r->enabled;}return;}if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+7)%8;
- if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%8;
+ if(pad->pressed_lthumb)p->hotbar_page=1-p->hotbar_page;
+ if(g->editor_mode){if(pad->pressed_lb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+7)%8;else p->selected_item=(p->selected_item+7)%8;}if(pad->pressed_rb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+1)%8;else p->selected_item=(p->selected_item+1)%8;}}
+ else{if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+4)%5;if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%5;}
  if(p->weapon_anim>0.0f)p->weapon_anim-=dt;
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch+pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
   p->position.x+=dx;p->position.z+=dz;p->position.y+=(pad->rt-pad->lt)*speed*dt;
-  if(pad->pressed_a){BwVec3 q=editor_place_position(p);if(!g->entity_tab)bw_world_add_block(g,q,.5f,bw_slot_colors[p->selected_slot]);else if(p->selected_weapon==0)bw_world_add_spike(g,q);else if(p->selected_weapon==1)bw_world_add_pickup(g,q,1);else if(p->selected_weapon==2)bw_world_add_pickup(g,q,2);else if(p->selected_weapon==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(g->npc_count<8){BwNpc *a=&g->npcs[g->npc_count++];a->position=q;a->type=p->selected_weapon==4?0:(p->selected_weapon==5?1:2);a->active=true;a->color=a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));if(a->type>0){a->rules[0].condition=BW_IF_SEES_PLAYER;a->rules[0].action=BW_DO_MOVE_TOWARD;a->rules[0].enabled=true;a->rules[1].condition=BW_IF_SHOT;a->rules[1].action=BW_DO_DISAPPEAR;a->rules[1].enabled=true;}}}
-  if(pad->pressed_x&&g->block_count>0)--g->block_count;if(pad->pressed_b)g->show_grid=!g->show_grid;
+  if(pad->pressed_a){if(p->hotbar_page==0){BwVec3 q=editor_place_position(p);bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);}
+   else{BwVec3 q=editor_place_position(p);if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,0.55f,q.z));}}
+  if(pad->pressed_x){if(g->block_count>0)--g->block_count;else if(g->prop_count>0)g->props[g->prop_count-1].active=false;}if(pad->pressed_b)g->show_grid=!g->show_grid;
  }else{
   float feet=p->position.y-BW_EYE_HEIGHT;
   if(bw_player_touches_spike(g,p->position.x,feet,p->position.z)){
@@ -51,11 +53,13 @@ static void update_one(BwGame *g,int i,float dt)
   if(bw_player_touches_spike(g,p->position.x,next,p->position.z)){
    p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;
   }
+  for(int k=0;k<g->prop_count;++k){BwProp *o=&g->props[k];if(!o->active)continue;float ox=o->position.x-p->position.x,oz=o->position.z-p->position.z,od=sqrtf(ox*ox+oz*oz);if(od<0.9f&&od>0.01f){o->velocity.x+=ox/od*3.5f*dt;o->velocity.z+=oz/od*3.5f*dt;}}
   for(int k=0;k<g->pickup_count;++k){BwPickup *it=&g->pickups[k];if(it->active&&fabsf(it->position.x-p->position.x)<0.8f&&fabsf(it->position.z-p->position.z)<0.8f){if(it->type==1){p->has_blaster=true;p->blaster_durability=100.0f;}if(it->type==2){p->has_sword=true;p->sword_durability=100.0f;}it->active=false;}}
   if(pad->pressed_x&&p->selected_weapon==2&&p->has_sword&&p->sword_durability>0.0f){p->weapon_anim=0.28f;p->sword_durability-=10.0f;if(p->sword_durability<=0)p->has_sword=false;float fx=sinf(p->yaw)*cosf(p->pitch),fz=cosf(p->yaw)*cosf(p->pitch);for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==i)continue;BwPlayer *o=&g->players[target];float dx=o->position.x-p->position.x,dz=o->position.z-p->position.z,along=dx*fx+dz*fz,side=fabsf(dx*fz-dz*fx);if(along>0&&along<1.0f&&side<0.7f){o->position=g->spawn_point;o->vertical_velocity=0;o->grounded=true;}}for(int n=0;n<g->npc_count;++n){BwNpc *o=&g->npcs[n];float dx=o->position.x-p->position.x,dz=o->position.z-p->position.z,along=dx*fx+dz*fz,side=fabsf(dx*fz-dz*fx);if(o->active&&o->type>0&&along>0&&along<1.0f&&side<0.7f)o->active=false;}}
   if(pad->pressed_x&&p->selected_weapon==1&&p->has_blaster&&p->blaster_durability>0.0f){p->weapon_anim=0.18f;p->blaster_durability-=5.0f;if(p->blaster_durability<=0)p->has_blaster=false;for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];float cp=cosf(p->pitch);s->position=BwVec3(p->position.x+sinf(p->yaw)*cp*.65f,p->position.y+sinf(p->pitch)*.65f,p->position.z+cosf(p->yaw)*cp*.65f);s->velocity=BwVec3(sinf(p->yaw)*cp*28.0f,sinf(p->pitch)*28.0f,cosf(p->yaw)*cp*28.0f);s->owner=i;s->life=3.0f;s->active=true;s->npc_owned=false;break;}} }
 
 }
+static bool npc_has_shot_rule(const BwGame *g,int n);
 static void update_projectiles(BwGame *g,float dt){
  for(int q=0;q<64;++q){BwProjectile *s=&g->projectiles[q];if(!s->active)continue;
   s->life-=dt;if(s->life<=0.0f){s->active=false;continue;}
@@ -63,16 +67,50 @@ static void update_projectiles(BwGame *g,float dt){
   if(s->position.y<0.0f){s->active=false;continue;}
   for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(s->position.x>v->position.x-v->half&&s->position.x<v->position.x+v->half&&s->position.y>v->position.y-v->half&&s->position.y<v->position.y+v->half&&s->position.z>v->position.z-v->half&&s->position.z<v->position.z+v->half){s->active=false;break;}}
   if(!s->active)continue;
-  if(!s->npc_owned){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(a->active&&a->type>0&&fabsf(s->position.x-a->position.x)<0.45f&&fabsf(s->position.z-a->position.z)<0.45f&&s->position.y>0.0f&&s->position.y<2.0f){a->anim=-1.0f;a->active=false;s->active=false;break;}}}
+  if(!s->npc_owned){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(a->active&&fabsf(s->position.x-a->position.x)<0.45f&&fabsf(s->position.z-a->position.z)<0.45f&&s->position.y>0.0f&&s->position.y<2.0f){a->was_shot=true;if(!npc_has_shot_rule(g,n))a->active=false;s->active=false;break;}}}
   if(!s->active)continue;
   for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==s->owner)continue;BwPlayer *p=&g->players[target];
    if(fabsf(s->position.x-p->position.x)<BW_PLAYER_RADIUS+0.12f&&fabsf(s->position.z-p->position.z)<BW_PLAYER_RADIUS+0.12f&&s->position.y>p->position.y-BW_EYE_HEIGHT&&s->position.y<p->position.y-BW_EYE_HEIGHT+BW_PLAYER_HEIGHT){p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;s->active=false;break;}
   }
  }
 }
-static void update_npcs(BwGame *g,float dt){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;if(g->player_count<=0)continue;BwPlayer *p=&g->players[g->active_slots[0]];float dx=p->position.x-a->position.x,dz=p->position.z-a->position.z,d=sqrtf(dx*dx+dz*dz);if(d>0.001f)a->yaw=(float)atan2(dx,dz);if(a->type==0){if(d>2.5f&&d<20.0f){a->position.x+=dx/d*1.2f*dt;a->position.z+=dz/d*1.2f*dt;}continue;}if(a->type==1){if(d>0.85f){a->position.x+=dx/d*1.8f*dt;a->position.z+=dz/d*1.8f*dt;}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}else if(a->type==2&&a->cooldown<=0&&d<18.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];s->position=BwVec3(a->position.x,1.25f,a->position.z);s->velocity=BwVec3(dx/d*18.0f,0,dz/d*18.0f);s->owner=-1;s->life=2.5f;s->active=true;s->npc_owned=true;a->cooldown=1.5f;break;}}}}
-static bool wall_color(const BwGame *g,const BwNpc *a,DWORD c){float x=a->position.x+sinf(a->yaw)*.4f,z=a->position.z+cosf(a->yaw)*.4f;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&v->color==c&&x>v->position.x-v->half-.2f&&x<v->position.x+v->half+.2f&&z>v->position.z-v->half-.2f&&z<v->position.z+v->half+.2f)return true;}return false;}
-static void rules_update(BwGame *g,BwNpc *a,float dt){if(!a->active||!g->player_count)return;BwPlayer *p=&g->players[g->active_slots[0]];float dx=p->position.x-a->position.x,dz=p->position.z-a->position.z,d=sqrtf(dx*dx+dz*dz);for(int k=0;k<4;++k){BwRule *r=&a->rules[k];if(!r->enabled)continue;bool yes=false;if(r->condition==BW_IF_SEES_PLAYER)yes=d<12;if(r->condition==BW_IF_BUMPS_WALL_COLOR)yes=wall_color(g,a,r->color?r->color:bw_slot_colors[0]);if(r->condition==BW_IF_SHOT)yes=a->anim<0;if(r->condition==BW_IF_TOUCHES_PLAYER)yes=d<.85f;if(r->condition==BW_IF_TIMER){a->rule_timer+=dt;if(a->rule_timer>(r->value>0?r->value:2)){yes=true;a->rule_timer=0;}}if(r->condition==BW_IF_NEAR_OBJECT)yes=d<4;if(!yes)continue;if(r->action==BW_DO_MOVE_TOWARD&&d>.01f){a->position.x+=dx/d*1.7f*dt;a->position.z+=dz/d*1.7f*dt;}else if(r->action==BW_DO_MOVE_BACKWARD&&d>.01f){a->position.x-=dx/d*1.7f*dt;a->position.z-=dz/d*1.7f*dt;}else if(r->action==BW_DO_SET_GREEN)a->color=D3DCOLOR_ARGB(255,55,220,90);else if(r->action==BW_DO_DISAPPEAR)a->active=false;else if(r->action==BW_DO_JUMP)a->velocity.y=5;else if(r->action==BW_DO_TURN)a->yaw+=2*dt;else if(r->action==BW_DO_STOP)a->velocity=BwVec3();else if(r->action==BW_DO_RESPAWN)a->position=g->spawn_point;else if(r->action==BW_DO_MOVE_RANDOM){a->yaw+=1.7f*dt;a->position.x+=sinf(a->yaw)*dt;a->position.z+=cosf(a->yaw)*dt;}else if(r->action==BW_DO_SHOOT&&a->cooldown<=0){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];s->position=a->position;s->velocity=BwVec3(dx/(d+.01f)*18,0,dz/(d+.01f)*18);s->owner=-1;s->life=2;s->active=true;s->npc_owned=true;a->cooldown=1;break;}}}}
-void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected)update_one(g,i,dt);update_npcs(g,dt);for(int n=0;n<g->npc_count;++n)rules_update(g,&g->npcs[n],dt);update_projectiles(g,dt);bw_physics_update(g,dt);}
+static bool npc_has_shot_rule(const BwGame *g,int n){for(int r=0;r<g->rule_count;++r)if(g->rules[r].active&&g->rules[r].npc==n&&g->rules[r].condition==BW_IF_SHOT)return true;return false;}
+static bool npc_bumps_green(const BwGame *g,const BwNpc *a,float dx,float dz){float x=a->position.x+dx,z=a->position.z+dz;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&v->color==bw_slot_colors[0]&&x>v->position.x-v->half-.35f&&x<v->position.x+v->half+.35f&&z>v->position.z-v->half-.35f&&z<v->position.z+v->half+.35f)return true;}return false;}
+static void update_npcs(BwGame *g,float dt){
+ for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;
+  int target=g->player_count>0?g->active_slots[0]:0;BwPlayer *p=&g->players[target];
+  float dx=p->position.x-a->position.x,dz=p->position.z-a->position.z,d=sqrtf(dx*dx+dz*dz);if(d>0.001f)a->yaw=(float)atan2(dx,dz);
+  bool scripted=false;
+  for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||rule->npc!=n)continue;bool trigger=false;
+   if(rule->condition==BW_IF_SEE_PLAYER)trigger=g->player_count>0&&d<12.0f;
+   else if(rule->condition==BW_IF_BUMP_GREEN)trigger=npc_bumps_green(g,a,sinf(a->yaw)*1.5f*dt,cosf(a->yaw)*1.5f*dt);
+   else if(rule->condition==BW_IF_SHOT)trigger=a->was_shot;
+   else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=g->player_count>0&&d<0.9f;
+   else if(rule->condition==BW_IF_TIMER&&a->cooldown<=0.0f){trigger=true;a->cooldown=1.0f;}
+   else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float ix=g->pickups[k].position.x-a->position.x,iz=g->pickups[k].position.z-a->position.z;if(ix*ix+iz*iz<9.0f)trigger=true;}}
+   if(!trigger)continue;scripted=true;
+   if(rule->action==BW_DO_MOVE_TOWARD&&d>0.01f){a->position.x+=dx/d*2.0f*dt;a->position.z+=dz/d*2.0f*dt;}
+   else if(rule->action==BW_DO_MOVE_BACKWARD){a->position.x-=sinf(a->yaw)*2.0f*dt;a->position.z-=cosf(a->yaw)*2.0f*dt;}
+   else if(rule->action==BW_DO_TURN)a->yaw+=3.0f*dt;
+   else if(rule->action==BW_DO_GREEN)a->color=bw_slot_colors[0];
+   else if(rule->action==BW_DO_DISAPPEAR)a->active=false;
+   else if(rule->action==BW_DO_RESPAWN){a->position=a->spawn_position;a->vertical_velocity=0.0f;}
+   else if(rule->action==BW_DO_JUMP)a->vertical_velocity=5.0f;
+   else if(rule->action==BW_DO_SHOOT&&g->player_count>0&&a->cooldown<=0.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);shot->velocity=BwVec3(dx/(d>0.01f?d:1.0f)*18.0f,0,dz/(d>0.01f?d:1.0f)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
+   if(rule->condition==BW_IF_SHOT)a->was_shot=false;
+  }
+  if(scripted)continue;if(g->player_count<=0)continue;
+  if(a->type==0){if(d>2.5f&&d<20.0f){a->position.x+=dx/d*1.2f*dt;a->position.z+=dz/d*1.2f*dt;}continue;}
+  if(a->type==1){if(d>0.85f){a->position.x+=dx/d*1.8f*dt;a->position.z+=dz/d*1.8f*dt;}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}
+  else if(a->type==2&&a->cooldown<=0&&d<18.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.25f,a->position.z);shot->velocity=BwVec3(dx/d*18.0f,0,dz/d*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.5f;break;}}
+ }
+}
+static void update_props(BwGame *g,float dt){
+ for(int i=0;i<g->prop_count;++i){BwProp *o=&g->props[i];if(!o->active)continue;o->velocity.y-=9.8f*dt;o->position.x+=o->velocity.x*dt;o->position.z+=o->velocity.z*dt;
+  for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;if(o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half&&o->position.y-o->half<v->position.y+v->half&&o->position.y+o->half>v->position.y-v->half){o->position.x-=o->velocity.x*dt;o->position.z-=o->velocity.z*dt;o->velocity.x=0;o->velocity.z=0;}}
+  o->position.y+=o->velocity.y*dt;if(o->position.y<o->half){o->position.y=o->half;o->velocity.y=0;}o->velocity.x*=0.985f;o->velocity.z*=0.985f;
+ }
+}
+void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected)update_one(g,i,dt);update_npcs(g,dt);update_props(g,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}

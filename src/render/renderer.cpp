@@ -305,7 +305,7 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
- menu_n=0;const BwPlayer *p=&g->players[slot];const char *nm=p->hotbar_page?(item_names[p->selected_item]):(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM"))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
+ menu_n=0;const char *nm=p->hotbar_page?(item_names[p->selected_item]):(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM"))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
  if(!g->editor_mode&&(p->selected_weapon==1||p->selected_weapon==2)){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
@@ -335,7 +335,7 @@ bool bw_renderer_open(void){
 
 void bw_renderer_draw(const BwGame *g){
  if(!dev)return;
- if(g->script_mode){dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);if(SUCCEEDED(dev->BeginScene())){menu_n=0;menu_rect(250,120,780,480,D3DCOLOR_ARGB(255,12,20,32));menu_text(290,155,"KODU RULE EDITOR",4,D3DCOLOR_ARGB(255,235,242,250));const char *cs[6]={"SEE PLAYER","BUMP WALL COLOR","SHOT","TOUCH PLAYER","TIMER","NEAR OBJECT"};const char *as[10]={"MOVE TOWARD","MOVE BACKWARD","SET GREEN","DISAPPEAR","SHOOT","JUMP","TURN","STOP","RESPAWN","MOVE RANDOM"};menu_text(300,230,"DPAD NPC LB RB RULE",2,D3DCOLOR_ARGB(255,150,190,230));menu_text(300,270,"A NEXT CONDITION X NEXT ACTION",2,D3DCOLOR_ARGB(255,150,190,230));menu_text(300,310,"B ENABLE/DISABLE",2,D3DCOLOR_ARGB(255,150,190,230));if(g->npc_count){const BwRule *q=&g->npcs[g->script_npc].rules[g->script_rule];menu_text(300,380,cs[q->condition%6],3,D3DCOLOR_ARGB(255,100,220,150));menu_text(300,430,as[q->action%10],3,D3DCOLOR_ARGB(255,255,210,110));menu_text(300,490,q->enabled?"RULE ENABLED":"RULE DISABLED",2,D3DCOLOR_ARGB(255,235,242,250));}menu_text(300,555,"RIGHT STICK CLICK TO CLOSE",2,D3DCOLOR_ARGB(255,235,242,250));if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));dev->EndScene();dev->Present(0,0,0,0);}return;}if(g->paused){
+ if(g->paused){
   dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);
   if(SUCCEEDED(dev->BeginScene())){controls_menu(g);dev->EndScene();dev->Present(0,0,0,0);}
   return;
