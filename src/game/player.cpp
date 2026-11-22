@@ -65,7 +65,7 @@ static bool object_position(const BwGame *g,int type,int index,BwVec3 *out){
  if(type==0){if(index<0||index>=BW_MAX_PLAYERS)return false;*out=g->players[index].position;return true;}
  if(type==1){if(index<0||index>=g->npc_count||!g->npcs[index].active)return false;*out=g->npcs[index].position;return true;}
  if(type==2){if(index<0||index>=g->prop_count||!g->props[index].active)return false;*out=g->props[index].position;return true;}
- if(type==3){if(index<0||index>=g->block_count)return false;*out=g->blocks[index].position;return true;}
+ if(type==3){if(index<0||index>=g->block_count||g->blocks[index].color==0)return false;*out=g->blocks[index].position;return true;}
  if(type==4){if(index<0||index>=g->pickup_count||!g->pickups[index].active)return false;*out=g->pickups[index].position;return true;}
  return false;
 }
@@ -115,8 +115,8 @@ static void run_player_rules(BwGame *g,int i,bool wasGrounded,float dt){
  }
  p->died_event=false;
 }
-static bool npc_blocked(const BwGame *g,float x,float z){for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&x>v->position.x-v->half-.32f&&x<v->position.x+v->half+.32f&&z>v->position.z-v->half-.32f&&z<v->position.z+v->half+.32f)return true;}return false;}
-static bool npc_bumps_green(const BwGame *g,const BwNpc *a,float dx,float dz){float x=a->position.x+dx,z=a->position.z+dz;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&v->color==bw_slot_colors[0]&&x>v->position.x-v->half-.35f&&x<v->position.x+v->half+.35f&&z>v->position.z-v->half-.35f&&z<v->position.z+v->half+.35f)return true;}return false;}
+static bool npc_blocked(const BwGame *g,float x,float z){for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->color!=0&&!v->spike&&x>v->position.x-v->half-.32f&&x<v->position.x+v->half+.32f&&z>v->position.z-v->half-.32f&&z<v->position.z+v->half+.32f)return true;}return false;}
+static bool npc_bumps_green(const BwGame *g,const BwNpc *a,float dx,float dz){float x=a->position.x+dx,z=a->position.z+dz;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->color!=0&&!v->spike&&v->color==bw_slot_colors[0]&&x>v->position.x-v->half-.35f&&x<v->position.x+v->half+.35f&&z>v->position.z-v->half-.35f&&z<v->position.z+v->half+.35f)return true;}return false;}
 static void update_npcs(BwGame *g,float dt){
  for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;
   int target=g->player_count>0?g->active_slots[0]:0;BwPlayer *p=&g->players[target];
@@ -157,8 +157,8 @@ static void update_npcs(BwGame *g,float dt){
 static void update_props(BwGame *g,float dt){
  for(int i=0;i<g->prop_count;++i){BwProp *o=&g->props[i];if(!o->active)continue;
   o->velocity.y-=9.8f*dt;o->position.x+=o->velocity.x*dt;o->position.z+=o->velocity.z*dt;
-  for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;if(o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half&&o->position.y-o->half<v->position.y+v->half&&o->position.y+o->half>v->position.y-v->half){o->position.x-=o->velocity.x*dt;o->position.z-=o->velocity.z*dt;o->velocity.x=0;o->velocity.z=0;}}
-  float oldY=o->position.y;o->position.y+=o->velocity.y*dt;if(o->velocity.y<=0.0f){float landing=o->half;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;bool over=o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half;float top=v->position.y+v->half;if(over&&oldY-o->half>=top-0.02f&&o->position.y-o->half<=top&&top+o->half>landing)landing=top+o->half;}if(o->position.y<landing){o->position.y=landing;o->velocity.y=0;}}
+  for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike||v->color==0)continue;if(o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half&&o->position.y-o->half<v->position.y+v->half&&o->position.y+o->half>v->position.y-v->half){o->position.x-=o->velocity.x*dt;o->position.z-=o->velocity.z*dt;o->velocity.x=0;o->velocity.z=0;}}
+  float oldY=o->position.y;o->position.y+=o->velocity.y*dt;if(o->velocity.y<=0.0f){float landing=o->half;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike||v->color==0)continue;bool over=o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half;float top=v->position.y+v->half;if(over&&oldY-o->half>=top-0.02f&&o->position.y-o->half<=top&&top+o->half>landing)landing=top+o->half;}if(o->position.y<landing){o->position.y=landing;o->velocity.y=0;}}
   bool falling=o->velocity.y<-.05f,stopped=o->was_falling&&!falling;o->was_falling=falling;o->velocity.x*=0.985f;o->velocity.z*=0.985f;
   for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||rule->owner_type!=BW_OWNER_PROP||rule->owner!=i)continue;bool trigger=false;float nearest=9999.0f;BwVec3 goal;
    for(int t=0;t<g->player_count;++t){BwPlayer *pl=&g->players[g->active_slots[t]];float x=pl->position.x-o->position.x,z=pl->position.z-o->position.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;goal=pl->position;}}
@@ -184,6 +184,7 @@ static void update_block_and_pickup_rules(BwGame *g,float dt){
   if(!trigger){rule->was_triggered=false;continue;}BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
   if(rule->action==BW_DO_MOVE_TOWARD&&has){float x=target.x-at.x,z=target.z-at.z,d=sqrtf(x*x+z*z);if(d>.01f){at.x+=x/d*2.0f*dt;at.z+=z/d*2.0f*dt;set_object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,at);}}
   else if(rule->action==BW_DO_GREEN&&rule->owner_type==BW_OWNER_BLOCK)g->blocks[rule->owner].color=bw_slot_colors[0];
+  else if(rule->action==BW_DO_DISAPPEAR&&rule->owner_type==BW_OWNER_BLOCK)g->blocks[rule->owner].color=0;
   else if(rule->action==BW_DO_DISAPPEAR&&rule->owner_type==BW_OWNER_PICKUP)g->pickups[rule->owner].active=false;
   else if(rule->action==BW_DO_SUMMON)summon_from_rule(g,rule,BwVec3(at.x+1.5f,at.y+.6f,at.z));
   else if(rule->action==BW_DO_PLACE_BLOCK)bw_world_add_block(g,BwVec3(at.x,0.5f,at.z),.5f,bw_slot_colors[0]);
@@ -203,7 +204,7 @@ bool bw_editor_select_object(BwGame *g,int player){
   for(int i=0;i<count;++i){BwVec3 q;bool active=true;
    if(type==0){active=g->npcs[i].active;q=g->npcs[i].position;q.y+=.9f;}
    else if(type==1){active=g->props[i].active;q=g->props[i].position;}
-   else if(type==2){q=g->blocks[i].position;}
+   else if(type==2){active=g->blocks[i].color!=0;q=g->blocks[i].position;}
    else{active=g->pickups[i].active;q=g->pickups[i].position;}
    if(!active)continue;float vx=q.x-p->position.x,vy=q.y-p->position.y,vz=q.z-p->position.z;
    float along=vx*dx+vy*dy+vz*dz;if(along<0.0f||along>14.0f)continue;

@@ -215,7 +215,7 @@ static void scene(const BwGame *g,int slot,int detail){
   line(v3(-(float)radius,0.01f,grid),v3((float)radius,0.01f,grid),D3DCOLOR_ARGB(255,45,57,70));
  }
  for(int i=0;i<g->block_count;++i){
-  const BwBlock *b=&g->blocks[i];
+  const BwBlock *b=&g->blocks[i];if(b->color==0)continue;
   float x=b->position.x-cam->position.x,y=b->position.y-cam->position.y,z=b->position.z-cam->position.z;
   if(x*x+y*y+z*z<=g->render_distance*g->render_distance){
    if(b->spike)spike_mesh(b);else box(b->position,v3(b->half,b->half,b->half),b->color);
