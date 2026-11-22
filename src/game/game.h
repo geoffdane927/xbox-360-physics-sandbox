@@ -12,10 +12,10 @@
 #define BW_EYE_HEIGHT 1.55f
 struct BwVec3 { float x,y,z; BwVec3():x(0),y(0),z(0){} BwVec3(float X,float Y,float Z):x(X),y(Y),z(Z){} };
 struct BwBlock { BwVec3 position; float half; DWORD color; bool spike; BwBlock():half(0),color(0),spike(false){} BwBlock(BwVec3 p,float h,DWORD c):position(p),half(h),color(c),spike(false){} };
-struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; float sword_durability,blaster_durability,weapon_anim; bool has_sword,has_blaster,grounded; int hotbar_page,selected_item; };
+struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; float sword_durability,blaster_durability,weapon_anim; bool has_sword,has_blaster,grounded,was_grounded,died_event; int hotbar_page,selected_item; };
 struct BwPickup { BwVec3 position; int type; bool active; BwPickup():type(0),active(false){} };
-struct BwNpc { BwVec3 position,spawn_position; float yaw,cooldown,anim,vertical_velocity; int type; DWORD color; bool active,was_shot; BwNpc():yaw(0),cooldown(0),anim(0),vertical_velocity(0),type(0),color(0),active(false),was_shot(false){} };
-struct BwProp { BwVec3 position,velocity; float half; DWORD color; bool active; BwProp():half(0.5f),color(0),active(false){} };
+struct BwNpc { BwVec3 position,spawn_position; float yaw,cooldown,anim,vertical_velocity; int type; DWORD color; bool active,was_shot,was_falling; BwNpc():yaw(0),cooldown(0),anim(0),vertical_velocity(0),type(0),color(0),active(false),was_shot(false){} };
+struct BwProp { BwVec3 position,velocity; float half; DWORD color; bool active,was_falling; BwProp():half(0.5f),color(0),active(false){} };
 enum BwRuleCondition { BW_IF_SEE_PLAYER=0,BW_IF_BUMP_GREEN=1,BW_IF_SHOT=2,BW_IF_TOUCH_PLAYER=3,BW_IF_TIMER=4,BW_IF_NEAR_ITEM=5 };
 enum BwRuleAction { BW_DO_MOVE_TOWARD=0,BW_DO_MOVE_BACKWARD=1,BW_DO_TURN=2,BW_DO_GREEN=3,BW_DO_DISAPPEAR=4,BW_DO_RESPAWN=5,BW_DO_JUMP=6,BW_DO_SHOOT=7 };
 struct BwRule { int npc,condition,action,parameter; bool active; BwRule():npc(0),condition(0),action(0),parameter(0),active(false){} };
