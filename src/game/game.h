@@ -18,16 +18,19 @@ struct BwBlock {
  BwBlock():half(0),color(0),spike(false){}
  BwBlock(BwVec3 p,float h,DWORD c):position(p),half(h),color(c),spike(false){}
 };
-struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; bool grounded; };
+struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; float sword_durability,blaster_durability,weapon_anim; bool has_sword,has_blaster,grounded; };
+struct BwPickup { BwVec3 position; int type; bool active; BwPickup():type(0),active(false){} };
+struct BwNpc { BwVec3 position; float yaw,cooldown,anim; int type; bool active; BwNpc():yaw(0),cooldown(0),anim(0),type(0),active(false){} };
 struct BwPad { XINPUT_GAMEPAD current,previous; bool connected,joined,pressed_a,pressed_b,pressed_x,pressed_y,pressed_back,pressed_start,pressed_left,pressed_right,pressed_up,pressed_down,pressed_lthumb,pressed_lb,pressed_rb; float lx,ly,rx,ry,lt,rt; };
-struct BwProjectile { BwVec3 position,velocity; int owner; float life; bool active; BwProjectile():owner(0),life(0),active(false){} };
-struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; BwProjectile projectiles[64]; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running,placing_spikes; int menu_selection; float render_distance,quality_scale,fps_average; float player_speed,jump_height,gravity; BwVec3 spawn_point; };
+struct BwProjectile { BwVec3 position,velocity; int owner; float life; bool active,npc_owned; BwProjectile():owner(0),life(0),active(false),npc_owned(false){} };
+struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; BwProjectile projectiles[64]; BwPickup pickups[32]; BwNpc npcs[8]; int pickup_count,npc_count; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running,placing_spikes; int menu_selection; float render_distance,quality_scale,fps_average; float player_speed,jump_height,gravity; BwVec3 spawn_point; };
 extern const DWORD bw_slot_colors[BW_INVENTORY_SLOTS];
 float bw_clamp(float,float,float);
 void bw_input_poll(BwGame*);
 void bw_world_init(BwGame*);
 void bw_world_add_block(BwGame*,BwVec3,float,DWORD);
 void bw_world_add_spike(BwGame*,BwVec3);
+void bw_world_add_pickup(BwGame*,BwVec3,int);
 bool bw_player_touches_spike(const BwGame*,float,float,float);
 bool bw_player_overlaps_block(float,float,float,const BwBlock*);
 bool bw_player_collides(const BwGame*,float,float,float);

@@ -26,6 +26,8 @@ void bw_input_poll(BwGame *game)
         p->rx=axis_value(p->current.sThumbRX,XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
         p->ry=axis_value(p->current.sThumbRY,XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
         p->lt=(float)p->current.bLeftTrigger/255.0f; p->rt=(float)p->current.bRightTrigger/255.0f;
+        if(p->connected && i>0 && !p->joined && p->pressed_start){p->joined=true;game->players[i].position=BwVec3(game->spawn_point.x+(float)i*1.5f,game->spawn_point.y,game->spawn_point.z);game->players[i].yaw=0.0f;game->players[i].pitch=0.0f;game->players[i].vertical_velocity=0.0f;game->players[i].grounded=true;}
+        if(!p->connected && i>0)p->joined=false;
         if(p->connected && p->joined) game->active_slots[count++]=i;
     }
     game->player_count=count;

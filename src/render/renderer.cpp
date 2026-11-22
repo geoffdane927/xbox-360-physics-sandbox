@@ -99,7 +99,7 @@ static void controls_menu(const BwGame *g){
  }
  menu_text(790,180,"CONTROLS",3,accent);menu_text(790,220,"LEFT STICK MOVE",2,white);menu_text(790,246,"RIGHT STICK LOOK",2,white);
  menu_text(790,272,"BACK PAUSE MODE",2,white);menu_text(790,298,"Y EXIT",2,white);
- menu_text(790,344,"PLAYER",2,accent);menu_text(790,370,"A JUMP",2,white);menu_text(790,396,"X PLACE",2,white);menu_text(790,422,"DPAD COLOR",2,white);menu_text(790,438,"LB RB ITEM",2,white);
+ menu_text(790,344,"PLAYER",2,accent);menu_text(790,370,"A JUMP",2,white);menu_text(790,396,"X USE ITEM",2,white);menu_text(790,422,"DPAD COLOR",2,white);menu_text(790,438,"LB RB ITEM",2,white);
  menu_text(790,458,"EDITOR",2,accent);menu_text(790,484,"A PLACE X REMOVE",2,white);menu_text(790,510,"L STICK SPIKE MODE",2,white);menu_text(790,536,"B GRID",2,white);
  menu_text(235,570,"DPAD SELECT  LEFT/RIGHT ADJUST",2,muted);menu_text(235,598,"A CONFIRM  B RESUME",2,muted);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
@@ -211,6 +211,8 @@ static void scene(const BwGame *g,int slot,int detail){
   }
  }
  for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
+ for(int q=0;q<g->pickup_count;++q)if(g->pickups[q].active)box(g->pickups[q].position,v3(.22f,.22f,.22f),g->pickups[q].type==1?D3DCOLOR_ARGB(255,60,170,255):D3DCOLOR_ARGB(255,210,210,220));
+ for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){BwNpc *a=&g->npcs[q];DWORD c=a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
   /* The active camera is positioned at eye height inside its own body.
@@ -231,8 +233,9 @@ static void scene(const BwGame *g,int slot,int detail){
   float cp=cosf(cam->pitch),fx=sinf(cam->yaw)*cp,fy=sinf(cam->pitch),fz=cosf(cam->yaw)*cp;
   float sx=cosf(cam->yaw),sz=-sinf(cam->yaw);
   BwVec3 hand=v3(cam->position.x+fx*.48f+sx*.24f,cam->position.y+fy*.48f-.24f,cam->position.z+fz*.48f+sz*.24f);
-  if(cam->selected_weapon==0){BwVec3 tip=v3(hand.x+fx*.72f,hand.y+fy*.72f+.12f,hand.z+fz*.72f);line(hand,tip,D3DCOLOR_ARGB(255,205,215,225));line(v3(hand.x-sx*.09f,hand.y,hand.z-sz*.09f),v3(hand.x+sx*.09f,hand.y,hand.z+sz*.09f),D3DCOLOR_ARGB(255,125,75,40));}
-  else{box(hand,v3(.13f,.10f,.22f),D3DCOLOR_ARGB(255,65,75,90));line(v3(hand.x+fx*.20f,hand.y,hand.z+fz*.20f),v3(hand.x+fx*.52f,hand.y,hand.z+fz*.52f),D3DCOLOR_ARGB(255,180,190,205));}
+  float swing=cam->weapon_anim>0.0f?(0.28f-cam->weapon_anim)/0.28f:0.0f;
+  if(cam->selected_weapon==2&&cam->has_sword){BwVec3 tip=v3(hand.x+fx*(.72f+sinf(swing*3.14159f)*.35f),hand.y+fy*.72f+cosf(swing*3.14159f)*.22f,hand.z+fz*(.72f+sinf(swing*3.14159f)*.35f));line(hand,tip,D3DCOLOR_ARGB(255,205,215,225));line(v3(hand.x-sx*.09f,hand.y,hand.z-sz*.09f),v3(hand.x+sx*.09f,hand.y,hand.z+sz*.09f),D3DCOLOR_ARGB(255,125,75,40));}
+  else if(cam->selected_weapon==1&&cam->has_blaster){float recoil=cam->weapon_anim>0.0f?sinf(swing*3.14159f)*.18f:0.0f;BwVec3 gun=v3(hand.x-fx*recoil,hand.y-fy*recoil,hand.z-fz*recoil);box(gun,v3(.13f,.10f,.22f),D3DCOLOR_ARGB(255,65,75,90));line(v3(gun.x+fx*.20f,gun.y,gun.z+fz*.20f),v3(gun.x+fx*.52f,gun.y,gun.z+fz*.52f),D3DCOLOR_ARGB(255,180,190,205));}
  }
  if(g->editor_mode){
   float fx=sinf(cam->yaw),fz=cosf(cam->yaw);
@@ -294,7 +297,8 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
- menu_n=0;menu_text(vp.x+18.0f,vp.y+18.0f,g->players[slot].selected_weapon==0?"SWORD":"BLASTER",2,D3DCOLOR_ARGB(255,255,230,150));
+ menu_n=0;const BwPlayer *p=&g->players[slot];const char *nm=p->selected_weapon==0?"SPIKE":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"CHECKPOINT"));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
+ if(p->selected_weapon==1||p->selected_weapon==2){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
  dev->SetRenderState(D3DRS_ZENABLE,TRUE);

@@ -20,9 +20,7 @@ int main()
   for(int i=0;i<BW_MAX_PLAYERS;++i){
    BwPad *pad=&g_game.pads[i];
    if(pad->pressed_y&&pad->joined)g_game.running=false;
-   if(i>0&&pad->connected&&pad->pressed_start&&!pad->joined){
-    pad->joined=true;g_game.players[i].position=BwVec3(g_game.spawn_point.x+(float)i*1.5f,g_game.spawn_point.y,g_game.spawn_point.z);g_game.players[i].yaw=0.0f;g_game.players[i].pitch=0.0f;g_game.players[i].vertical_velocity=0.0f;g_game.players[i].grounded=true;
-   }
+   /* Extra controllers join on Start inside the polling routine. */
    if(i==0&&pad->joined&&pad->pressed_start)g_game.paused=!g_game.paused;
    if(g_game.paused){
     if(pad->pressed_b)g_game.paused=false;
