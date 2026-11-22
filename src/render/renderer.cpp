@@ -86,34 +86,39 @@ static void format_signed_tenths(float value,char *out){
 static void controls_menu(const BwGame *g){
  menu_n=0;DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
  DWORD panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205),selected=D3DCOLOR_ARGB(255,28,65,98);
- menu_rect(180,70,920,590,panel);menu_rect(205,96,870,5,accent);menu_text(235,112,"PAUSED",4,white);
- const char *labels[17]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY","SPAWN X","SPAWN Y","SPAWN Z","SET SPAWN HERE","SAVE GAME","LOAD GAME","SCRIPT NPC","IF CONDITION","DO ACTION","ADD RULE"};
- static const char *conditions[6]={"SEE PLAYER","BUMP GREEN","GET SHOT","TOUCH PLAYER","TIMER","NEAR ITEM"};
- static const char *actions[8]={"MOVE TOWARD","MOVE BACK","TURN AROUND","CHANGE GREEN","DISAPPEAR","RESPAWN","JUMP","SHOOT"};
- for(int i=0;i<17;++i){float y=142.0f+i*29.0f;if(g->menu_selection==i)menu_rect(220,y-4,510,26,selected);menu_text(240,y,labels[i],2,g->menu_selection==i?white:muted);
-  if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",2,white);
-  if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",2,white);
-  if(i==3){char digits[5];int n=(int)g->render_distance;digits[0]=(char)('0'+(n/1000)%10);digits[1]=(char)('0'+(n/100)%10);digits[2]=(char)('0'+(n/10)%10);digits[3]=(char)('0'+n%10);digits[4]=0;menu_text(520,y,digits,2,white);}
-  if(i>=4&&i<=6){char value[8];format_tenths(i==4?g->player_speed:(i==5?g->jump_height:g->gravity),value);menu_text(520,y,value,2,white);}
-  if(i>=7&&i<=9){char value[8];format_signed_tenths(i==7?g->spawn_point.x:(i==8?g->spawn_point.y:g->spawn_point.z),value);menu_text(520,y,value,2,white);}
-  if(i==11)menu_text(520,y,g->save_status==1?"SAVED":(g->save_status==-1?"FAILED":"SLOT 1"),2,white);
-  if(i==12)menu_text(520,y,g->save_status==2?"LOADED":(g->save_status==-2?"FAILED":"SLOT 1"),2,white);
-  if(i==13){char v[2];v[0]=(char)('1'+g->script_npc);v[1]=0;menu_text(520,y,v,2,white);}
-  if(i==14)menu_text(520,y,conditions[g->script_condition%6],2,white);
-  if(i==15)menu_text(520,y,actions[g->script_action%8],2,white);
-  if(i==16){char v[5];int n=g->rule_count;v[0]=(char)('0'+(n/100)%10);v[1]=(char)('0'+(n/10)%10);v[2]=(char)('0'+n%10);v[3]=0;menu_text(520,y,v,2,white);}
+ menu_rect(145,45,990,640,panel);menu_rect(170,70,940,5,accent);
+ menu_text(190,88,g->script_editor?"OBJECT SCRIPT EDITOR":"PAUSED / PLAYER SCRIPTING",4,white);
+ const char *labels[20]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY","SPAWN X","SPAWN Y","SPAWN Z","SET SPAWN HERE","SAVE GAME","LOAD GAME","SCRIPT OWNER","IF CONDITION","DO ACTION","MOVE TOWARD TYPE","MOVE TOWARD ID","SUMMON TYPE","ADD RULE"};
+ static const char *owners[5]={"NPC","CRATE","BLOCK","PICKUP","PLAYER"};
+ static const char *conditions[12]={"SEE PLAYER","BUMP GREEN","GET SHOT","TOUCH PLAYER","TIMER","NEAR ITEM","ON DEATH","ON FALL","STOP FALLING","ON LAND","ON JUMP","ON USE"};
+ static const char *actions[12]={"MOVE TOWARD","MOVE BACK","TURN AROUND","CHANGE GREEN","DISAPPEAR","RESPAWN","JUMP","SHOOT","MOVE CAMERA","SUMMON","PLACE BLOCK","CUSTOM WEAPON"};
+ static const char *targets[5]={"PLAYER","NPC","CRATE","BLOCK","PICKUP"};
+ static const char *summons[4]={"FRIENDLY NPC","SWORD NPC","BLASTER NPC","CRATE"};
+ for(int i=0;i<20;++i){float y=132.0f+i*25.0f;if(g->menu_selection==i)menu_rect(180,y-3,560,23,selected);menu_text(195,y,labels[i],2,g->menu_selection==i?white:muted);
+  if(i==1)menu_text(480,y,g->editor_mode?"EDITOR":"PLAYER",2,white);
+  if(i==2)menu_text(480,y,g->automatic_render_distance?"ON":"OFF",2,white);
+  if(i==3){char digits[5];int n=(int)g->render_distance;digits[0]=(char)('0'+(n/1000)%10);digits[1]=(char)('0'+(n/100)%10);digits[2]=(char)('0'+(n/10)%10);digits[3]=(char)('0'+n%10);digits[4]=0;menu_text(480,y,digits,2,white);}
+  if(i>=4&&i<=6){char value[8];format_tenths(i==4?g->player_speed:(i==5?g->jump_height:g->gravity),value);menu_text(480,y,value,2,white);}
+  if(i>=7&&i<=9){char value[8];format_signed_tenths(i==7?g->spawn_point.x:(i==8?g->spawn_point.y:g->spawn_point.z),value);menu_text(480,y,value,2,white);}
+  if(i==11)menu_text(480,y,g->save_status==1?"SAVED":(g->save_status==-1?"FAILED":"SLOT 1"),2,white);
+  if(i==12)menu_text(480,y,g->save_status==2?"LOADED":(g->save_status==-2?"FAILED":"SLOT 1"),2,white);
+  if(i==13){char v[32];const char *nm=owners[g->script_owner_type%5];int n=g->script_owner+1;v[0]=0;strcat(v,nm);if(g->script_owner_type!=BW_OWNER_PLAYER){char num[8];num[0]=' ';num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;strcat(v,num);}menu_text(480,y,v,2,white);}
+  if(i==14)menu_text(480,y,conditions[g->script_condition%12],2,white);
+  if(i==15)menu_text(480,y,actions[g->script_action%12],2,white);
+  if(i==16)menu_text(480,y,targets[g->script_target_type%5],2,white);
+  if(i==17){char num[5];int n=g->script_target_index+1;num[0]=(char)('0'+(n/100)%10);num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;menu_text(480,y,num,2,white);}
+  if(i==18)menu_text(480,y,summons[g->script_summon_type%4],2,white);
+  if(i==19){char num[5];int n=g->rule_count;num[0]=(char)('0'+(n/100)%10);num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;menu_text(480,y,num,2,white);}
  }
- menu_text(790,180,"CONTROLS",3,accent);menu_text(790,220,"LEFT STICK MOVE",2,white);menu_text(790,246,"RIGHT STICK LOOK",2,white);
- menu_text(790,272,"BACK MODE",2,white);menu_text(790,298,"Y EXIT",2,white);
- menu_text(790,344,"EDITOR",2,accent);menu_text(790,370,"A PLACE X REMOVE",2,white);menu_text(790,396,"L CLICK TAB",2,white);menu_text(790,422,"LB RB SELECT",2,white);menu_text(790,448,"B GRID",2,white);
- menu_text(790,486,"SCRIPT BUILDER",2,accent);menu_text(790,512,"PICK NPC AND IF",2,white);menu_text(790,538,"PICK DO THEN ADD",2,white);
- menu_text(235,640,"DPAD SELECT  LEFT/RIGHT CHANGE  A CONFIRM  B RESUME",2,muted);
+ menu_text(790,150,"CONTROLS",3,accent);menu_text(790,190,"DPAD UP/DOWN SELECT",2,white);menu_text(790,216,"LEFT/RIGHT CHANGE",2,white);menu_text(790,242,"A CONFIRM  B RESUME",2,white);
+ menu_text(790,294,"EDITOR",2,accent);menu_text(790,320,"LOOK AT OBJECT + Y",2,white);menu_text(790,346,"OPEN ITS SCRIPTS",2,white);menu_text(790,372,"Y ALSO CLOSES MENU",2,white);
+ menu_text(790,424,"SCRIPT EXAMPLES",2,accent);menu_text(790,450,"IF ON FALL -> MOVE",2,white);menu_text(790,476,"IF ON USE -> WEAPON",2,white);menu_text(790,502,"IF TIMER -> SUMMON",2,white);menu_text(790,528,"IF SHOT -> DISAPPEAR",2,white);
+ menu_text(190,652,"ADD RULE SAVES THE SELECTED IF / DO PAIR TO THE SELECTED OBJECT OR PLAYER",2,muted);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
  dev->SetViewport(&full);dev->SetRenderState(D3DRS_ZENABLE,FALSE);dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);dev->SetRenderState(D3DRS_ZENABLE,TRUE);
 }
-
 
 static const char *vs_source =
  "struct VS_IN { float4 position : POSITION0; float4 color : COLOR0; };"
