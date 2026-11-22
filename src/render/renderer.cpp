@@ -193,7 +193,11 @@ static void scene(const BwGame *g,int slot,int detail){
    box(b->position,v3(b->half,b->half,b->half),b->color);
  }
  for(int i=0;i<g->player_count;++i){
-  int s=g->active_slots[i];const BwPlayer *p=&g->players[s];
+  int s=g->active_slots[i];
+  /* The active camera is positioned at eye height inside its own body.
+     Drawing that body from the inside creates a huge blue wall in first person. */
+  if(s==slot)continue;
+  const BwPlayer *p=&g->players[s];
   float feet=p->position.y-BW_EYE_HEIGHT;
   box(v3(p->position.x,feet+BW_PLAYER_HEIGHT*.5f,p->position.z),
       v3(BW_PLAYER_RADIUS,BW_PLAYER_HEIGHT*.5f,BW_PLAYER_RADIUS),
