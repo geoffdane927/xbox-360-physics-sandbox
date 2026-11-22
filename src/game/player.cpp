@@ -1,6 +1,6 @@
 #include "game/game.h"
 #include <math.h>
-static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->grounded=true;}
+static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->grounded=true;}
 static BwVec3 editor_place_position(const BwPlayer *p)
 {
  float fx=sinf(p->yaw),fz=cosf(p->yaw);
@@ -19,7 +19,9 @@ static void update_one(BwGame *g,int i,float dt)
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
- p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch-pad->ry*1.8f*dt,-1.45f,1.45f);
+ if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+1)%2;
+ if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%2;
+ p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch+pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
@@ -53,10 +55,37 @@ static void update_one(BwGame *g,int i,float dt)
   if(bw_player_touches_spike(g,p->position.x,next,p->position.z)){
    p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;
   }
-  if(pad->pressed_x)place_block(g,p);
+  if(pad->pressed_x){
+   if(p->selected_weapon==0){
+    float fx=sinf(p->yaw)*cosf(p->pitch),fy=sinf(p->pitch),fz=cosf(p->yaw)*cosf(p->pitch);
+    for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==i)continue;BwPlayer *other=&g->players[target];
+     float ox=other->position.x-p->position.x,oy=other->position.y-p->position.y,oz=other->position.z-p->position.z;
+     float along=ox*fx+oy*fy+oz*fz;float side2=ox*ox+oy*oy+oz*oz-along*along;
+     if(along>0.0f&&along<=1.5f&&side2<0.55f&&fabsf(oy)<1.5f){other->position=g->spawn_point;other->vertical_velocity=0.0f;other->grounded=true;}
+    }
+   }else{
+    for(int q=0;q<64;++q)if(!g->projectiles[q].active){
+     BwProjectile *shot=&g->projectiles[q];float cp=cosf(p->pitch);
+     shot->position=BwVec3(p->position.x+sinf(p->yaw)*cp*0.65f,p->position.y+sinf(p->pitch)*0.65f,p->position.z+cosf(p->yaw)*cp*0.65f);
+     shot->velocity=BwVec3(sinf(p->yaw)*cp*28.0f,sinf(p->pitch)*28.0f,cosf(p->yaw)*cp*28.0f);shot->owner=i;shot->life=3.0f;shot->active=true;break;
+    }
+   }
+  }
  }
 
 }
-void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].connected||i==0)update_one(g,i,dt);}
+static void update_projectiles(BwGame *g,float dt){
+ for(int q=0;q<64;++q){BwProjectile *s=&g->projectiles[q];if(!s->active)continue;
+  s->life-=dt;if(s->life<=0.0f){s->active=false;continue;}
+  s->position.x+=s->velocity.x*dt;s->position.y+=s->velocity.y*dt;s->position.z+=s->velocity.z*dt;
+  if(s->position.y<0.0f){s->active=false;continue;}
+  for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(s->position.x>v->position.x-v->half&&s->position.x<v->position.x+v->half&&s->position.y>v->position.y-v->half&&s->position.y<v->position.y+v->half&&s->position.z>v->position.z-v->half&&s->position.z<v->position.z+v->half){s->active=false;break;}}
+  if(!s->active)continue;
+  for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==s->owner)continue;BwPlayer *p=&g->players[target];
+   if(fabsf(s->position.x-p->position.x)<BW_PLAYER_RADIUS+0.12f&&fabsf(s->position.z-p->position.z)<BW_PLAYER_RADIUS+0.12f&&s->position.y>p->position.y-BW_EYE_HEIGHT&&s->position.y<p->position.y-BW_EYE_HEIGHT+BW_PLAYER_HEIGHT){p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;s->active=false;break;}
+  }
+ }
+}
+void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined)update_one(g,i,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}

@@ -210,6 +210,7 @@ static void scene(const BwGame *g,int slot,int detail){
    if(b->spike)spike_mesh(b);else box(b->position,v3(b->half,b->half,b->half),b->color);
   }
  }
+ for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
   /* The active camera is positioned at eye height inside its own body.
@@ -226,6 +227,13 @@ static void scene(const BwGame *g,int slot,int detail){
  BwVec3 flag_base(g->spawn_point.x,0.02f,g->spawn_point.z);
  line(flag_base,v3(flag_base.x,2.5f,flag_base.z),D3DCOLOR_ARGB(255,220,220,225));
  quad(v3(flag_base.x,2.35f,flag_base.z),v3(flag_base.x+0.85f,2.15f,flag_base.z),v3(flag_base.x+0.85f,1.65f,flag_base.z),v3(flag_base.x,1.85f,flag_base.z),D3DCOLOR_ARGB(255,220,55,55));
+ if(!g->editor_mode){
+  float cp=cosf(cam->pitch),fx=sinf(cam->yaw)*cp,fy=sinf(cam->pitch),fz=cosf(cam->yaw)*cp;
+  float sx=cosf(cam->yaw),sz=-sinf(cam->yaw);
+  BwVec3 hand=v3(cam->position.x+fx*.48f+sx*.24f,cam->position.y+fy*.48f-.24f,cam->position.z+fz*.48f+sz*.24f);
+  if(cam->selected_weapon==0){BwVec3 tip=v3(hand.x+fx*.72f,hand.y+fy*.72f+.12f,hand.z+fz*.72f);line(hand,tip,D3DCOLOR_ARGB(255,205,215,225));line(v3(hand.x-sx*.09f,hand.y,hand.z-sz*.09f),v3(hand.x+sx*.09f,hand.y,hand.z+sz*.09f),D3DCOLOR_ARGB(255,125,75,40));}
+  else{box(hand,v3(.13f,.10f,.22f),D3DCOLOR_ARGB(255,65,75,90));line(v3(hand.x+fx*.20f,hand.y,hand.z+fz*.20f),v3(hand.x+fx*.52f,hand.y,hand.z+fz*.52f),D3DCOLOR_ARGB(255,180,190,205));}
+ }
  if(g->editor_mode){
   float fx=sinf(cam->yaw),fz=cosf(cam->yaw);
   BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
@@ -286,6 +294,8 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
+ menu_n=0;menu_text(vp.x+18.0f,vp.y+18.0f,g->players[slot].selected_weapon==0?"SWORD":"BLASTER",2,D3DCOLOR_ARGB(255,255,230,150));
+ if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
  dev->SetRenderState(D3DRS_ZENABLE,TRUE);
 }
@@ -323,7 +333,7 @@ void bw_renderer_draw(const BwGame *g){
  if(FAILED(dev->BeginScene()))return;
 
  /* Split-screen is opt-in. Multiple connected pads alone never divide the TV. */
- int view_count=(g->split_screen&&g->player_count>1)?g->player_count:1;
+ int view_count=g->player_count>1?g->player_count:1;
  for(int i=0;i<view_count;++i){
   int slot=(view_count>1)?g->active_slots[i]:g->active_slots[0];
   View vp;vp.x=vp.y=0;vp.w=SW;vp.h=SH;

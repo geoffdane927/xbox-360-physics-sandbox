@@ -8,7 +8,7 @@ int main()
  g_game.render_distance=512.0f;g_game.menu_selection=0;
  g_game.player_speed=5.0f;g_game.jump_height=1.5f;g_game.gravity=18.0f;g_game.spawn_point=BwVec3(0.0f,BW_EYE_HEIGHT,-8.0f);
  g_game.quality_scale=1.0f;g_game.fps_average=60.0f;
- for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8.0f);g_game.players[i].grounded=true;g_game.active_slots[i]=i;}
+ for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8.0f);g_game.players[i].grounded=true;g_game.active_slots[i]=i;g_game.pads[i].joined=(i==0);}
  bw_world_init(&g_game);
  if(!bw_renderer_open())return 1;
  DWORD last=GetTickCount();
@@ -19,8 +19,11 @@ int main()
   bw_input_poll(&g_game);
   for(int i=0;i<BW_MAX_PLAYERS;++i){
    BwPad *pad=&g_game.pads[i];
-   if(pad->pressed_y)g_game.running=false;
-   if(pad->pressed_start)g_game.paused=!g_game.paused;
+   if(pad->pressed_y&&pad->joined)g_game.running=false;
+   if(i>0&&pad->connected&&pad->pressed_start&&!pad->joined){
+    pad->joined=true;g_game.players[i].position=BwVec3(g_game.spawn_point.x+(float)i*1.5f,g_game.spawn_point.y,g_game.spawn_point.z);g_game.players[i].yaw=0.0f;g_game.players[i].pitch=0.0f;g_game.players[i].vertical_velocity=0.0f;g_game.players[i].grounded=true;
+   }
+   if(i==0&&pad->joined&&pad->pressed_start)g_game.paused=!g_game.paused;
    if(g_game.paused){
     if(pad->pressed_b)g_game.paused=false;
     if(pad->pressed_up)g_game.menu_selection=(g_game.menu_selection+10)%11;
@@ -50,6 +53,8 @@ int main()
     }
    }else if(pad->pressed_back)g_game.editor_mode=!g_game.editor_mode;
   }
+  g_game.player_count=0;for(int p=0;p<BW_MAX_PLAYERS;++p)if(g_game.pads[p].connected&&g_game.pads[p].joined)g_game.active_slots[g_game.player_count++]=p;
+  if(g_game.player_count==0){g_game.player_count=1;g_game.active_slots[0]=0;}
   if(g_game.running&&!g_game.paused){
    bw_quality_update(&g_game,dt);
    bw_players_update(&g_game,dt);

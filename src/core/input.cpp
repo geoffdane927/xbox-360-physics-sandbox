@@ -19,15 +19,15 @@ void bw_input_poll(BwGame *game)
         EDGE(pressed_back,XINPUT_GAMEPAD_BACK); EDGE(pressed_start,XINPUT_GAMEPAD_START);
         EDGE(pressed_left,XINPUT_GAMEPAD_DPAD_LEFT); EDGE(pressed_right,XINPUT_GAMEPAD_DPAD_RIGHT);
         EDGE(pressed_up,XINPUT_GAMEPAD_DPAD_UP); EDGE(pressed_down,XINPUT_GAMEPAD_DPAD_DOWN);
-        EDGE(pressed_lthumb,XINPUT_GAMEPAD_LEFT_THUMB);
+        EDGE(pressed_lthumb,XINPUT_GAMEPAD_LEFT_THUMB); EDGE(pressed_lb,XINPUT_GAMEPAD_LEFT_SHOULDER); EDGE(pressed_rb,XINPUT_GAMEPAD_RIGHT_SHOULDER);
 #undef EDGE
         p->lx=axis_value(p->current.sThumbLX,XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
         p->ly=axis_value(p->current.sThumbLY,XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
         p->rx=axis_value(p->current.sThumbRX,XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
         p->ry=axis_value(p->current.sThumbRY,XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
         p->lt=(float)p->current.bLeftTrigger/255.0f; p->rt=(float)p->current.bRightTrigger/255.0f;
-        if(p->connected) game->active_slots[count++]=i;
+        if(p->connected && p->joined) game->active_slots[count++]=i;
     }
-    game->player_count=count?count:1;
-    if(!count) game->active_slots[0]=0;
+    game->player_count=count;
+    if(!count) { game->player_count=1; game->active_slots[0]=0; }
 }

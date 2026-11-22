@@ -28,8 +28,9 @@ The project file is a starting point for the legacy XDK MSBuild platform. XDK ve
 - Back toggles Editor / Player mode
 - Start opens/closes the pause menu. In the menu, D-pad up/down selects, A confirms, left/right changes the manual render distance, and B resumes.
 - Y exits
-- Left stick moves; right stick looks
-- Player mode: A jumps, X places a block, D-pad left/right selects color, Start opens the pause menu
+- Press Start on a second connected controller to join; each joined player gets a split-screen view.
+- Left stick moves; right stick looks (up looks up, down looks down).
+- Player mode: A jumps, X uses the selected weapon, LB/RB switches between Sword and Blaster, D-pad left/right selects color. Sword hits opponents within one grid tile; Blaster fires a straight projectile. Player 1 Start opens the pause menu; Player 2+ Start joins.
 - Editor mode: triggers move vertically, A places the selected block/spike, X removes the last placed object, B toggles grid, left-stick click toggles spike placement. D-pad left/right selects block color in either mode.
 - Pause menu: use Spawn X/Y/Z to adjust the shared respawn point, or select SET SPAWN HERE to copy your current position. A flag marks the spawn point. Spikes kill players on contact and respawn them at that point.
 

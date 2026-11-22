@@ -18,9 +18,10 @@ struct BwBlock {
  BwBlock():half(0),color(0),spike(false){}
  BwBlock(BwVec3 p,float h,DWORD c):position(p),half(h),color(c),spike(false){}
 };
-struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot; bool grounded; };
-struct BwPad { XINPUT_GAMEPAD current,previous; bool connected,pressed_a,pressed_b,pressed_x,pressed_y,pressed_back,pressed_start,pressed_left,pressed_right,pressed_up,pressed_down,pressed_lthumb; float lx,ly,rx,ry,lt,rt; };
-struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running,placing_spikes; int menu_selection; float render_distance,quality_scale,fps_average; float player_speed,jump_height,gravity; BwVec3 spawn_point; };
+struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; bool grounded; };
+struct BwPad { XINPUT_GAMEPAD current,previous; bool connected,joined,pressed_a,pressed_b,pressed_x,pressed_y,pressed_back,pressed_start,pressed_left,pressed_right,pressed_up,pressed_down,pressed_lthumb,pressed_lb,pressed_rb; float lx,ly,rx,ry,lt,rt; };
+struct BwProjectile { BwVec3 position,velocity; int owner; float life; bool active; BwProjectile():owner(0),life(0),active(false){} };
+struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; BwProjectile projectiles[64]; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running,placing_spikes; int menu_selection; float render_distance,quality_scale,fps_average; float player_speed,jump_height,gravity; BwVec3 spawn_point; };
 extern const DWORD bw_slot_colors[BW_INVENTORY_SLOTS];
 float bw_clamp(float,float,float);
 void bw_input_poll(BwGame*);
