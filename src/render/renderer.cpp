@@ -108,7 +108,8 @@ static void controls_menu(const BwGame *g){
   if(i==16)menu_text(480,y,targets[g->script_target_type%5],2,white);
   if(i==17){char num[5];int n=g->script_target_index+1;num[0]=(char)('0'+(n/100)%10);num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;menu_text(480,y,num,2,white);}
   if(i==18)menu_text(480,y,summons[g->script_summon_type%4],2,white);
-  if(i==19){char num[5];int n=g->rule_count;num[0]=(char)('0'+(n/100)%10);num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;menu_text(480,y,num,2,white);}\n  if(i==20){int count=0;for(int q=0;q<g->rule_count;++q)if(g->rules[q].active&&g->rules[q].owner_type==g->script_owner_type&&g->rules[q].owner==g->script_owner)++count;char num[12];int n=g->script_rule_index+1;num[0]=(char)('0'+(n/10)%10);num[1]=(char)('0'+n%10);num[2]='/';num[3]=(char)('0'+(count/10)%10);num[4]=(char)('0'+count%10);num[5]=0;menu_text(480,y,count?num:"NONE",2,white);}
+  if(i==19){char num[5];int n=g->rule_count;num[0]=(char)('0'+(n/100)%10);num[1]=(char)('0'+(n/10)%10);num[2]=(char)('0'+n%10);num[3]=0;menu_text(480,y,num,2,white);}
+  if(i==20){int count=0;for(int q=0;q<g->rule_count;++q)if(g->rules[q].active&&g->rules[q].owner_type==g->script_owner_type&&g->rules[q].owner==g->script_owner)++count;char num[12];int n=g->script_rule_index+1;num[0]=(char)('0'+(n/10)%10);num[1]=(char)('0'+n%10);num[2]='/';num[3]=(char)('0'+(count/10)%10);num[4]=(char)('0'+count%10);num[5]=0;menu_text(480,y,count?num:"NONE",2,white);}
  }
  menu_text(790,142,"CONTROLS",3,accent);menu_text(790,180,"DPAD UP/DOWN SELECT",2,white);menu_text(790,206,"LEFT/RIGHT CHANGE",2,white);menu_text(790,232,"A CONFIRM  B RESUME",2,white);
  menu_text(790,282,"EDITOR",2,accent);menu_text(790,308,"LOOK AT OBJECT + Y",2,white);menu_text(790,334,"OPEN ITS SCRIPTS",2,white);menu_text(790,360,"Y ALSO CLOSES MENU",2,white);
