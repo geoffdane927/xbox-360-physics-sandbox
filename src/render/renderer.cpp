@@ -298,6 +298,7 @@ static void hud(const BwGame *g,int slot,View vp){
  float s=1.0f,w=34*s,h=30*s,gap=4*s;
  float total=8*w+7*gap,start=vp.x+(vp.w-total)*.5f,y=vp.y+vp.h-h-18*s;
  DWORD mode=g->editor_mode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
+ const BwPlayer *p=&g->players[slot];
  static const char *item_names[8]={"SPIKE","BLAST","SWORD","FLAG","FRIEND","SWORD","GUN","CRATE"};
  for(int i=0;i<8;++i){float x=start+i*(w+gap);bool active=p->hotbar_page==0?(i==p->selected_slot):(i==p->selected_item);hudrect(v,&n,x,y,w,h,active?mode:D3DCOLOR_ARGB(255,125,135,150));if(p->hotbar_page==0)hudrect(v,&n,x+9*s,y+8*s,16*s,14*s,bw_slot_colors[i]);}
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
