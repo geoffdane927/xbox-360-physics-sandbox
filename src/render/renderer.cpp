@@ -5,6 +5,16 @@
 
 static const int SW=1280,SH=720,MAX_TRI=24576,MAX_LINE=8192;
 static const float PI=3.14159265358979323846f;
+struct Vtx { float x,y,z,w; DWORD color; };
+struct View { int x,y,w,h; };
+static Vtx tris[MAX_TRI],lines[MAX_LINE];
+static int nt=0,nl=0;
+static IDirect3D9 *d3d=0;
+static IDirect3DDevice9 *dev=0;
+static IDirect3DVertexShader9 *vertex_shader=0;
+static IDirect3DPixelShader9 *pixel_shader=0;
+static IDirect3DVertexDeclaration9 *vertex_decl=0;
+
 static const unsigned char font5x7[37][5]={
  {0x7e,0x11,0x11,0x11,0x7e}, {0x7f,0x49,0x49,0x49,0x36},
  {0x3e,0x41,0x41,0x41,0x22}, {0x7f,0x41,0x41,0x22,0x1c},
@@ -56,26 +66,46 @@ static void menu_text(float x,float y,const char *s,float scale,DWORD color){
    if(font5x7[g][col]&(1<<row))menu_pixel(x+col*scale,y+row*scale,scale,color);
  }
 }
-static void controls_menu(){
+static void controls_menu(const BwGame *g){
  menu_n=0;
  DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
  DWORD panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205);
- /* Background panel, built as two triangles. */
- menu_rect(280,118,720,486,panel);
- menu_rect(300,142,680,4,accent);
- menu_text(430,160,"CONTROLS",5,white);
- menu_text(330,220,"LEFT STICK MOVE",3,white);
- menu_text(330,250,"RIGHT STICK LOOK",3,white);
- menu_text(330,280,"BACK TOGGLE EDITOR PLAYER",3,white);
- menu_text(330,310,"START OPEN CLOSE THIS MENU",3,white);
- menu_text(330,340,"Y EXIT GAME",3,white);
- menu_text(330,390,"PLAYER MODE",3,accent);
- menu_text(330,420,"A JUMP   X PLACE BLOCK",3,white);
- menu_text(330,450,"DPAD LEFT RIGHT SELECT COLOR",3,white);
- menu_text(330,490,"EDITOR MODE",3,accent);
- menu_text(330,520,"A PLACE   X REMOVE LAST BLOCK",3,white);
- menu_text(330,550,"TRIGGERS UP DOWN   B GRID",3,white);
- menu_text(330,580,"PRESS START OR B TO CLOSE",2,muted);
+ DWORD selected=D3DCOLOR_ARGB(255,28,65,98);
+ menu_rect(180,70,920,590,panel);
+ menu_rect(205,96,870,5,accent);
+ menu_text(235,118,"PAUSED",5,white);
+ const char *labels[4]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE"};
+ char value[32]; int n=(int)g->render_distance;
+ value[0]=0;
+ for(int i=0;i<4;++i){
+  float y=190.0f+i*48.0f;
+  if(g->menu_selection==i)menu_rect(220,y-8,510,38,selected);
+  menu_text(240,y,labels[i],3,g->menu_selection==i?white:muted);
+  if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",3,white);
+  if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",3,white);
+  if(i==3){
+   int hundreds=n/100, tens=(n/10)%10, ones=n%10;
+   char digits[4];digits[0]=(char)('0'+hundreds);digits[1]=(char)('0'+tens);digits[2]=(char)('0'+ones);digits[3]=0;
+   menu_text(520,y,digits,3,white);
+  }
+ }
+ menu_text(790,190,"CONTROLS",3,accent);
+ menu_text(790,230,"LEFT STICK MOVE",2,white);
+ menu_text(790,258,"RIGHT STICK LOOK",2,white);
+ menu_text(790,286,"BACK MODE",2,white);
+ menu_text(790,314,"Y EXIT",2,white);
+ menu_text(790,360,"PLAYER",2,accent);
+ menu_text(790,388,"A JUMP",2,white);
+ menu_text(790,416,"X PLACE",2,white);
+ menu_text(790,444,"DPAD SELECT COLOR",2,white);
+ menu_text(790,478,"EDITOR",2,accent);
+ menu_text(790,506,"A PLACE X REMOVE",2,white);
+ menu_text(790,534,"TRIGGERS UP DOWN",2,white);
+ menu_text(790,562,"B GRID",2,white);
+ menu_text(235,430,"DPAD UP DOWN SELECT",2,muted);
+ menu_text(235,458,"LEFT RIGHT CHANGE DISTANCE",2,muted);
+ menu_text(235,486,"A CONFIRM   START RESUME",2,muted);
+ menu_text(235,514,"B RESUME",2,muted);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
  dev->SetViewport(&full);
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
@@ -83,17 +113,6 @@ static void controls_menu(){
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);dev->SetRenderState(D3DRS_ZENABLE,TRUE);
 }
 
-
-struct Vtx { float x,y,z,w; DWORD color; };
-struct View { int x,y,w,h; };
-
-static Vtx tris[MAX_TRI],lines[MAX_LINE];
-static int nt=0,nl=0;
-static IDirect3D9 *d3d=0;
-static IDirect3DDevice9 *dev=0;
-static IDirect3DVertexShader9 *vertex_shader=0;
-static IDirect3DPixelShader9 *pixel_shader=0;
-static IDirect3DVertexDeclaration9 *vertex_decl=0;
 
 static const char *vs_source =
  "struct VS_IN { float4 position : POSITION0; float4 color : COLOR0; };"
@@ -263,9 +282,9 @@ bool bw_renderer_open(void){
 
 void bw_renderer_draw(const BwGame *g){
  if(!dev)return;
- if(g->controls_menu){
+ if(g->paused){
   dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);
-  if(SUCCEEDED(dev->BeginScene())){controls_menu();dev->EndScene();dev->Present(0,0,0,0);}
+  if(SUCCEEDED(dev->BeginScene())){controls_menu(g);dev->EndScene();dev->Present(0,0,0,0);}
   return;
  }
  int detail=g->quality_scale>.85f?1:(g->quality_scale>.70f?2:3);
