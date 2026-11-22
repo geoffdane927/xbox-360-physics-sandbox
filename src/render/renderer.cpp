@@ -243,6 +243,7 @@ static void scene(const BwGame *g,int slot,int detail){
   preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f)+0.5f;preview.z=floorf(preview.z+0.5f);
   if(g->players[slot].selected_weapon==0){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
   else if(g->players[slot].selected_weapon==3){BwVec3 base(preview.x,0.02f,preview.z);line(base,v3(base.x,2.5f,base.z),D3DCOLOR_ARGB(255,220,220,225));quad(v3(base.x,2.35f,base.z),v3(base.x+.85f,2.15f,base.z),v3(base.x+.85f,1.65f,base.z),v3(base.x,1.85f,base.z),D3DCOLOR_ARGB(255,220,55,55));}
+  else if(g->players[slot].selected_weapon==4)wire_box(preview,v3(0.5f,0.5f,0.5f),D3DCOLOR_ARGB(255,40,230,255));
   else wire_box(preview,v3(0.22f,0.22f,0.22f),D3DCOLOR_ARGB(255,40,230,255));
  }
 }
@@ -298,7 +299,7 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
- menu_n=0;const BwPlayer *p=&g->players[slot];const char *nm=p->selected_weapon==0?"SPIKE":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"CHECKPOINT"));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
+ menu_n=0;const BwPlayer *p=&g->players[slot];const char *nm=p->selected_weapon==0?"SPIKE":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":(p->selected_weapon==3?"CHECKPOINT":"BLOCK")));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
  if(p->selected_weapon==1||p->selected_weapon==2){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);

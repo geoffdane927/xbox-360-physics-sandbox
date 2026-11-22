@@ -19,15 +19,15 @@ static void update_one(BwGame *g,int i,float dt)
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
- if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+3)%4;
- if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%4;
+ if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+4)%5;
+ if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%5;
  if(p->weapon_anim>0.0f)p->weapon_anim-=dt;
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch+pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
   p->position.x+=dx;p->position.z+=dz;p->position.y+=(pad->rt-pad->lt)*speed*dt;
-  if(pad->pressed_a){BwVec3 q=editor_place_position(p);if(p->selected_weapon==0)bw_world_add_spike(g,q);else if(p->selected_weapon==1)bw_world_add_pickup(g,q,1);else if(p->selected_weapon==2)bw_world_add_pickup(g,q,2);else g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);}
+  if(pad->pressed_a){BwVec3 q=editor_place_position(p);if(p->selected_weapon==0)bw_world_add_spike(g,q);else if(p->selected_weapon==1)bw_world_add_pickup(g,q,1);else if(p->selected_weapon==2)bw_world_add_pickup(g,q,2);else if(p->selected_weapon==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);}
   if(pad->pressed_x&&g->block_count>0)--g->block_count;if(pad->pressed_b)g->show_grid=!g->show_grid;
  }else{
   float feet=p->position.y-BW_EYE_HEIGHT;
@@ -70,7 +70,7 @@ static void update_projectiles(BwGame *g,float dt){
   }
  }
 }
-static void update_npcs(BwGame *g,float dt){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;if(a->type==0||g->player_count<=0)continue;BwPlayer *p=&g->players[g->active_slots[0]];float dx=p->position.x-a->position.x,dz=p->position.z-a->position.z,d=sqrtf(dx*dx+dz*dz);if(d>0.001f)a->yaw=(float)atan2(dx,dz);if(a->type==1){if(d>0.85f){a->position.x+=dx/d*1.8f*dt;a->position.z+=dz/d*1.8f*dt;}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}else if(a->type==2&&a->cooldown<=0&&d<18.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];s->position=BwVec3(a->position.x,1.25f,a->position.z);s->velocity=BwVec3(dx/d*18.0f,0,dz/d*18.0f);s->owner=-1;s->life=2.5f;s->active=true;s->npc_owned=true;a->cooldown=1.5f;break;}}}}
+static void update_npcs(BwGame *g,float dt){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;if(g->player_count<=0)continue;BwPlayer *p=&g->players[g->active_slots[0]];float dx=p->position.x-a->position.x,dz=p->position.z-a->position.z,d=sqrtf(dx*dx+dz*dz);if(d>0.001f)a->yaw=(float)atan2(dx,dz);if(a->type==0){if(d>2.5f&&d<20.0f){a->position.x+=dx/d*1.2f*dt;a->position.z+=dz/d*1.2f*dt;}continue;}if(a->type==1){if(d>0.85f){a->position.x+=dx/d*1.8f*dt;a->position.z+=dz/d*1.8f*dt;}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}else if(a->type==2&&a->cooldown<=0&&d<18.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];s->position=BwVec3(a->position.x,1.25f,a->position.z);s->velocity=BwVec3(dx/d*18.0f,0,dz/d*18.0f);s->owner=-1;s->life=2.5f;s->active=true;s->npc_owned=true;a->cooldown=1.5f;break;}}}}
 void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected)update_one(g,i,dt);update_npcs(g,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}
