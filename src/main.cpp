@@ -3,7 +3,7 @@ BwGame g_game;
 int main()
 {
  ZeroMemory(&g_game,sizeof(g_game));
- g_game.editor_mode=true;g_game.show_grid=true;g_game.running=true;
+ g_game.editor_mode=true;g_game.show_grid=true;g_game.split_screen=false;g_game.running=true;
  g_game.quality_scale=1.0f;g_game.fps_average=60.0f;
  for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8.0f);g_game.players[i].grounded=true;g_game.active_slots[i]=i;}
  bw_world_init(&g_game);

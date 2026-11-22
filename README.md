@@ -31,7 +31,7 @@ The project file is a starting point for the legacy XDK MSBuild platform. XDK ve
 - Player mode: A jumps, X places a block, D-pad left/right selects color, Start resets player
 - Editor mode: triggers move vertically, A places a block, X removes the last block, B toggles grid, Start resets player
 
-Up to four connected controllers use split-screen. Render distance and grid detail scale with player count and measured frame rate. The character is an upright box with basic gravity and AABB collision, not a ragdoll.
+Up to four connected controllers are supported. Split-screen is disabled by default and only activates when the split_screen game setting is explicitly enabled. Render distance and grid detail scale with player count and measured frame rate. The character is an upright box with basic gravity and AABB collision, not a ragdoll.
 
 ## Limitations
 
