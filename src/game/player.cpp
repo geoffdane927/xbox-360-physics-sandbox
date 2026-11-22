@@ -1,6 +1,6 @@
 #include "game/game.h"
 #include <math.h>
-static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->hotbar_page=0;p->selected_item=0;}
+static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;}
 static BwVec3 editor_place_position(const BwPlayer *p)
 {
  float fx=sinf(p->yaw),fz=cosf(p->yaw);
@@ -162,7 +162,7 @@ static void update_props(BwGame *g,float dt){
   bool falling=o->velocity.y<-.05f,stopped=o->was_falling&&!falling;o->was_falling=falling;o->velocity.x*=0.985f;o->velocity.z*=0.985f;
   for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||rule->owner_type!=BW_OWNER_PROP||rule->owner!=i)continue;bool trigger=false;float nearest=9999.0f;BwVec3 goal;
    for(int t=0;t<g->player_count;++t){BwPlayer *pl=&g->players[g->active_slots[t]];float x=pl->position.x-o->position.x,z=pl->position.z-o->position.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;goal=pl->position;}}
-   if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<.9f;else if(rule->condition==BW_IF_ON_FALL)trigger=falling;else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=stopped;else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
+   if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<.9f;else if(rule->condition==BW_IF_BUMP_GREEN){for(int b=0;b<g->block_count;++b)if(g->blocks[b].color==bw_slot_colors[0]&&fabsf(g->blocks[b].position.x-o->position.x)<.9f&&fabsf(g->blocks[b].position.z-o->position.z)<.9f)trigger=true;}else if(rule->condition==BW_IF_ON_FALL)trigger=falling;else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=stopped;else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
    else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-o->position.x,z=g->pickups[k].position.z-o->position.z;if(x*x+z*z<9)trigger=true;}}
    if(!trigger){rule->was_triggered=false;continue;}
    BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
@@ -179,7 +179,7 @@ static void update_props(BwGame *g,float dt){
 static void update_block_and_pickup_rules(BwGame *g,float dt){
  for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||(rule->owner_type!=BW_OWNER_BLOCK&&rule->owner_type!=BW_OWNER_PICKUP))continue;BwVec3 at;if(!object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,&at))continue;bool trigger=false;float nearest=9999.0f;int player=-1;
   for(int t=0;t<g->player_count;++t){int pi=g->active_slots[t];float x=g->players[pi].position.x-at.x,z=g->players[pi].position.z-at.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;player=pi;}}
-  if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<1.0f;else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
+  if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<1.0f;else if(rule->condition==BW_IF_BUMP_GREEN&&rule->owner_type==BW_OWNER_BLOCK)trigger=g->blocks[rule->owner].color==bw_slot_colors[0];else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
   else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-at.x,z=g->pickups[k].position.z-at.z;if(x*x+z*z<9.0f)trigger=true;}}
   if(!trigger){rule->was_triggered=false;continue;}BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
   if(rule->action==BW_DO_MOVE_TOWARD&&has){float x=target.x-at.x,z=target.z-at.z,d=sqrtf(x*x+z*z);if(d>.01f){at.x+=x/d*2.0f*dt;at.z+=z/d*2.0f*dt;set_object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,at);}}
