@@ -20,7 +20,7 @@ struct BwBlock {
 };
 struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot; bool grounded; };
 struct BwPad { XINPUT_GAMEPAD current,previous; bool connected,pressed_a,pressed_b,pressed_x,pressed_y,pressed_back,pressed_start,pressed_left,pressed_right,pressed_up,pressed_down; float lx,ly,rx,ry,lt,rt; };
-struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running; int menu_selection; float render_distance,quality_scale,fps_average; };
+struct BwGame { BwPlayer players[BW_MAX_PLAYERS]; BwPad pads[BW_MAX_PLAYERS]; int active_slots[BW_MAX_PLAYERS],player_count; BwBlock blocks[BW_MAX_BLOCKS]; int block_count; bool editor_mode,show_grid,split_screen,paused,automatic_render_distance,running; int menu_selection; float render_distance,quality_scale,fps_average; float player_speed,jump_height,gravity; };
 extern const DWORD bw_slot_colors[BW_INVENTORY_SLOTS];
 float bw_clamp(float,float,float);
 void bw_input_poll(BwGame*);

@@ -9,7 +9,7 @@ static void place_block(BwGame *g,BwPlayer *p)
 }
 static void update_one(BwGame *g,int i,float dt)
 {
- BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:5.0f;
+ BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch-pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
@@ -20,8 +20,8 @@ static void update_one(BwGame *g,int i,float dt)
  }else{
   float feet=p->position.y-BW_EYE_HEIGHT,nx=p->position.x+dx,nz=p->position.z+dz;
   if(!bw_player_collides(g,nx,feet,p->position.z))p->position.x=nx;if(!bw_player_collides(g,p->position.x,feet,nz))p->position.z=nz;
-  if(pad->pressed_a&&p->grounded){p->vertical_velocity=6.0f;p->grounded=false;}
-  p->vertical_velocity-=18.0f*dt;float next=feet+p->vertical_velocity*dt;bool landed=false;
+  if(pad->pressed_a&&p->grounded){p->vertical_velocity=sqrtf(2.0f*g->gravity*g->jump_height);p->grounded=false;}
+  p->vertical_velocity-=g->gravity*dt;float next=feet+p->vertical_velocity*dt;bool landed=false;
   if(p->vertical_velocity<=0.0f){
    float landing=(feet>=0.0f&&next<=0.0f)?0.0f:-100000.0f;
    for(int b=0;b<g->block_count;++b){const BwBlock *block=&g->blocks[b];float top=block->position.y+block->half;

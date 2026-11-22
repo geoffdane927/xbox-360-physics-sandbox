@@ -15,7 +15,7 @@ static IDirect3DVertexShader9 *vertex_shader=0;
 static IDirect3DPixelShader9 *pixel_shader=0;
 static IDirect3DVertexDeclaration9 *vertex_decl=0;
 
-static const unsigned char font5x7[37][5]={
+static const unsigned char font5x7[38][5]={
  {0x7e,0x11,0x11,0x11,0x7e}, {0x7f,0x49,0x49,0x49,0x36},
  {0x3e,0x41,0x41,0x41,0x22}, {0x7f,0x41,0x41,0x22,0x1c},
  {0x7f,0x49,0x49,0x49,0x41}, {0x7f,0x09,0x09,0x09,0x01},
@@ -34,12 +34,13 @@ static const unsigned char font5x7[37][5]={
  {0x18,0x14,0x12,0x7f,0x10}, {0x2f,0x49,0x49,0x49,0x31},
  {0x3e,0x49,0x49,0x49,0x32}, {0x01,0x71,0x09,0x05,0x03},
  {0x36,0x49,0x49,0x49,0x36}, {0x26,0x49,0x49,0x49,0x3e},
- {0x00,0x36,0x36,0x00,0x00}
+ {0x00,0x36,0x36,0x00,0x00}, {0x00,0x60,0x60,0x00,0x00}
 };
 static int glyph_index(char c){
  if(c>='A'&&c<='Z')return c-'A';
  if(c>='0'&&c<='9')return 26+c-'0';
  if(c==':')return 36;
+ if(c=='.')return 37;
  return -1;
 }
 static Vtx menu_v[90000]; static int menu_n=0;
@@ -66,6 +67,14 @@ static void menu_text(float x,float y,const char *s,float scale,DWORD color){
    if(font5x7[g][col]&(1<<row))menu_pixel(x+col*scale,y+row*scale,scale,color);
  }
 }
+static void format_tenths(float value,char *out){
+ int n=(int)(value*10.0f+0.5f);
+ out[0]=(char)('0'+(n/100)%10);
+ out[1]=(char)('0'+(n/10)%10);
+ out[2]='.';
+ out[3]=(char)('0'+n%10);
+ out[4]=0;
+}
 static void controls_menu(const BwGame *g){
  menu_n=0;
  DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
@@ -74,18 +83,21 @@ static void controls_menu(const BwGame *g){
  menu_rect(180,70,920,590,panel);
  menu_rect(205,96,870,5,accent);
  menu_text(235,118,"PAUSED",5,white);
- const char *labels[4]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE"};
- int n=(int)g->render_distance;
- for(int i=0;i<4;++i){
-  float y=190.0f+i*48.0f;
-  if(g->menu_selection==i)menu_rect(220,y-8,510,38,selected);
-  menu_text(240,y,labels[i],3,g->menu_selection==i?white:muted);
-  if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",3,white);
-  if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",3,white);
-  if(i==3){
-   int thousands=(n/1000)%10, hundreds=(n/100)%10, tens=(n/10)%10, ones=n%10;
-   char digits[5];digits[0]=(char)('0'+thousands);digits[1]=(char)('0'+hundreds);digits[2]=(char)('0'+tens);digits[3]=(char)('0'+ones);digits[4]=0;
-   menu_text(520,y,digits,3,white);
+ const char *labels[7]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY"};
+ for(int i=0;i<7;++i){
+  float y=184.0f+i*39.0f;
+  if(g->menu_selection==i)menu_rect(220,y-7,510,34,selected);
+  menu_text(240,y,labels[i],2,g->menu_selection==i?white:muted);
+  if(i==1)menu_text(520,y,g->editor_mode?"EDITOR":"PLAYER",2,white);
+  if(i==2)menu_text(520,y,g->automatic_render_distance?"ON":"OFF",2,white);
+  if(i==3){char digits[5];int n=(int)g->render_distance;
+   digits[0]=(char)('0'+(n/1000)%10);digits[1]=(char)('0'+(n/100)%10);
+   digits[2]=(char)('0'+(n/10)%10);digits[3]=(char)('0'+n%10);digits[4]=0;
+   menu_text(520,y,digits,2,white);
+  }
+  if(i==4||i==5||i==6){char value[5];
+   format_tenths(i==4?g->player_speed:(i==5?g->jump_height:g->gravity),value);
+   menu_text(520,y,value,2,white);
   }
  }
  menu_text(790,190,"CONTROLS",3,accent);
@@ -101,10 +113,9 @@ static void controls_menu(const BwGame *g){
  menu_text(790,506,"A PLACE X REMOVE",2,white);
  menu_text(790,534,"TRIGGERS UP DOWN",2,white);
  menu_text(790,562,"B GRID",2,white);
- menu_text(235,430,"DPAD UP DOWN SELECT",2,muted);
- menu_text(235,458,"LEFT RIGHT CHANGE DISTANCE",2,muted);
- menu_text(235,486,"A CONFIRM   START RESUME",2,muted);
- menu_text(235,514,"B RESUME",2,muted);
+ menu_text(235,510,"DPAD UP DOWN SELECT",2,muted);
+ menu_text(235,538,"LEFT RIGHT ADJUST",2,muted);
+ menu_text(235,566,"A CONFIRM   B RESUME",2,muted);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
  dev->SetViewport(&full);
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
@@ -146,6 +157,16 @@ static void box(BwVec3 c,BwVec3 h,DWORD k){
  const int e[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
  for(int i=0;i<12;++i)line(v[e[i][0]],v[e[i][1]],D3DCOLOR_ARGB(255,22,28,35));
 }
+static void wire_box(BwVec3 c,BwVec3 h,DWORD color){
+ BwVec3 v[8]={
+  v3(c.x-h.x,c.y-h.y,c.z-h.z),v3(c.x+h.x,c.y-h.y,c.z-h.z),
+  v3(c.x+h.x,c.y+h.y,c.z-h.z),v3(c.x-h.x,c.y+h.y,c.z-h.z),
+  v3(c.x-h.x,c.y-h.y,c.z+h.z),v3(c.x+h.x,c.y-h.y,c.z+h.z),
+  v3(c.x+h.x,c.y+h.y,c.z+h.z),v3(c.x-h.x,c.y+h.y,c.z+h.z)
+ };
+ const int e[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
+ for(int i=0;i<12;++i)line(v[e[i][0]],v[e[i][1]],color);
+}
 
 static bool make_shaders(){
  ID3DXBuffer *code=0,*errors=0;
@@ -183,8 +204,9 @@ static void scene(const BwGame *g,int slot,int detail){
  if(radius>256)radius=256;
  if(radius<24)radius=24;
  if(g->show_grid)for(int i=-radius;i<=radius;i+=detail){
-  line(v3((float)i,0,-(float)radius),v3((float)i,0,(float)radius),D3DCOLOR_ARGB(255,45,57,70));
-  line(v3(-(float)radius,0,(float)i),v3((float)radius,0,(float)i),D3DCOLOR_ARGB(255,45,57,70));
+  float grid=(float)i+0.5f;
+  line(v3(grid,0,-(float)radius),v3(grid,0,(float)radius),D3DCOLOR_ARGB(255,45,57,70));
+  line(v3(-(float)radius,0,grid),v3((float)radius,0,grid),D3DCOLOR_ARGB(255,45,57,70));
  }
  for(int i=0;i<g->block_count;++i){
   const BwBlock *b=&g->blocks[i];
@@ -204,6 +226,12 @@ static void scene(const BwGame *g,int slot,int detail){
       D3DCOLOR_ARGB(255,75+s*35,145,235));
   box(v3(p->position.x,feet+BW_PLAYER_HEIGHT+.12f,p->position.z),
       v3(.23f,.23f,.23f),D3DCOLOR_ARGB(255,220,185,145));
+ }
+ if(g->editor_mode){
+  float fx=sinf(cam->yaw),fz=cosf(cam->yaw);
+  BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
+  preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f);preview.z=floorf(preview.z+0.5f);
+  wire_box(preview,v3(0.5f,0.5f,0.5f),D3DCOLOR_ARGB(255,40,230,255));
  }
 }
 

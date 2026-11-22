@@ -6,6 +6,7 @@ int main()
  g_game.editor_mode=true;g_game.show_grid=true;g_game.split_screen=false;
  g_game.paused=false;g_game.automatic_render_distance=false;g_game.running=true;
  g_game.render_distance=512.0f;g_game.menu_selection=0;
+ g_game.player_speed=5.0f;g_game.jump_height=1.5f;g_game.gravity=18.0f;
  g_game.quality_scale=1.0f;g_game.fps_average=60.0f;
  for(int i=0;i<BW_MAX_PLAYERS;++i){g_game.players[i].position=BwVec3((i-1.5f)*1.2f,BW_EYE_HEIGHT,-8.0f);g_game.players[i].grounded=true;g_game.active_slots[i]=i;}
  bw_world_init(&g_game);
@@ -22,11 +23,20 @@ int main()
    if(pad->pressed_start)g_game.paused=!g_game.paused;
    if(g_game.paused){
     if(pad->pressed_b)g_game.paused=false;
-    if(pad->pressed_up)g_game.menu_selection=(g_game.menu_selection+3)%4;
-    if(pad->pressed_down)g_game.menu_selection=(g_game.menu_selection+1)%4;
+    if(pad->pressed_up)g_game.menu_selection=(g_game.menu_selection+6)%7;
+    if(pad->pressed_down)g_game.menu_selection=(g_game.menu_selection+1)%7;
     if(g_game.menu_selection==3){
      if(pad->pressed_left)g_game.render_distance=bw_clamp(g_game.render_distance-64.0f,64.0f,2048.0f);
      if(pad->pressed_right)g_game.render_distance=bw_clamp(g_game.render_distance+64.0f,64.0f,2048.0f);
+    }else if(g_game.menu_selection==4){
+     if(pad->pressed_left)g_game.player_speed=bw_clamp(g_game.player_speed-0.5f,1.0f,20.0f);
+     if(pad->pressed_right)g_game.player_speed=bw_clamp(g_game.player_speed+0.5f,1.0f,20.0f);
+    }else if(g_game.menu_selection==5){
+     if(pad->pressed_left)g_game.jump_height=bw_clamp(g_game.jump_height-0.25f,0.5f,8.0f);
+     if(pad->pressed_right)g_game.jump_height=bw_clamp(g_game.jump_height+0.25f,0.5f,8.0f);
+    }else if(g_game.menu_selection==6){
+     if(pad->pressed_left)g_game.gravity=bw_clamp(g_game.gravity-1.0f,4.0f,40.0f);
+     if(pad->pressed_right)g_game.gravity=bw_clamp(g_game.gravity+1.0f,4.0f,40.0f);
     }
     if(pad->pressed_a){
      if(g_game.menu_selection==0)g_game.paused=false;
