@@ -86,13 +86,13 @@ static void summon_from_rule(BwGame *g,const BwRule *r,BwVec3 at){
  for(int i=0;i<count&&g->rule_count<BW_MAX_RULES;++i){BwRule *dst=&g->rules[g->rule_count++];*dst=copies[i];dst->owner_type=newOwnerType;dst->owner=newIndex;dst->was_triggered=false;}
 }
 static void run_player_rules(BwGame *g,int i,bool wasGrounded,float dt){
- BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];bool jumped=pad->pressed_a&&!wasGrounded&&p->vertical_velocity>0.0f;
+ BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];bool jumped=pad->pressed_a&&!p->grounded&&p->vertical_velocity>0.0f;
  for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||rule->owner_type!=BW_OWNER_PLAYER||rule->owner!=i)continue;
   bool trigger=false;float nearest=9999.0f;int target=-1;
   for(int t=0;t<g->player_count;++t){int pi=g->active_slots[t];if(pi==i)continue;float x=g->players[pi].position.x-p->position.x,z=g->players[pi].position.z-p->position.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;target=pi;}}
   if(rule->condition==BW_IF_SEE_PLAYER)trigger=target>=0&&nearest<12.0f;
   else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=target>=0&&nearest<0.9f;
-  else if(rule->condition==BW_IF_TIMER){trigger=!rule->was_triggered; if(trigger)rule->was_triggered=true;}
+  else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0.0f){trigger=true;rule->timer=2.0f;}}
   else if(rule->condition==BW_IF_ON_DEATH)trigger=p->died_event;
   else if(rule->condition==BW_IF_ON_FALL)trigger=!p->grounded&&p->vertical_velocity<0.0f;
   else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=p->grounded&&!wasGrounded;
@@ -100,6 +100,7 @@ static void run_player_rules(BwGame *g,int i,bool wasGrounded,float dt){
   else if(rule->condition==BW_IF_ON_USE)trigger=pad->pressed_x;
   else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-p->position.x,z=g->pickups[k].position.z-p->position.z;if(x*x+z*z<9.0f)trigger=true;}}
   if(!trigger)continue;
+  if(rule->action==BW_DO_SUMMON||rule->action==BW_DO_PLACE_BLOCK||rule->action==BW_DO_SHOOT||rule->action==BW_DO_CUSTOM_WEAPON){if(rule->was_triggered&&rule->condition!=BW_IF_TIMER)continue;rule->was_triggered=true;}else if(!trigger)rule->was_triggered=false;
   if(rule->action==BW_DO_MOVE_CAMERA){float cp=cosf(p->pitch);p->position.x+=sinf(p->yaw)*cp*3.0f*dt;p->position.y+=sinf(p->pitch)*3.0f*dt;p->position.z+=cosf(p->yaw)*cp*3.0f*dt;}
   else if(rule->action==BW_DO_MOVE_TOWARD){BwVec3 goal;if(object_position(g,rule->target_type,rule->target_index,&goal)){float x=goal.x-p->position.x,z=goal.z-p->position.z,d=sqrtf(x*x+z*z);if(d>0.1f){p->position.x+=x/d*3.0f*dt;p->position.z+=z/d*3.0f*dt;}}}
   else if(rule->action==BW_DO_MOVE_BACKWARD){p->position.x-=sinf(p->yaw)*2.0f*dt;p->position.z-=cosf(p->yaw)*2.0f*dt;}
@@ -124,7 +125,7 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->condition==BW_IF_BUMP_GREEN)trigger=npc_bumps_green(g,a,sinf(a->yaw)*1.5f*dt,cosf(a->yaw)*1.5f*dt);
    else if(rule->condition==BW_IF_SHOT||rule->condition==BW_IF_ON_DEATH)trigger=a->was_shot;
    else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=g->player_count>0&&d<0.9f;
-   else if(rule->condition==BW_IF_TIMER&&a->cooldown<=0.0f){trigger=true;a->cooldown=1.0f;}
+   else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0.0f){trigger=true;rule->timer=2.0f;}}
    else if(rule->condition==BW_IF_ON_FALL)trigger=a->vertical_velocity<0.0f&&a->position.y>0.0f;
    else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=a->was_falling&&a->vertical_velocity==0.0f;
    else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float ix=g->pickups[k].position.x-a->position.x,iz=g->pickups[k].position.z-a->position.z;if(ix*ix+iz*iz<9.0f)trigger=true;}}
@@ -140,7 +141,7 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->action==BW_DO_JUMP)a->vertical_velocity=5.0f;
    else if(rule->action==BW_DO_PLACE_BLOCK){BwVec3 at(a->position.x+sinf(a->yaw)*2.0f,.5f,a->position.z+cosf(a->yaw)*2.0f);bw_world_add_block(g,at,.5f,bw_slot_colors[0]);}
    else if(rule->action==BW_DO_SUMMON)summon_from_rule(g,rule,BwVec3(a->position.x+sinf(a->yaw)*2.5f,.6f,a->position.z+cosf(a->yaw)*2.5f));
-   else if((rule->action==BW_DO_SHOOT||rule->action==BW_DO_CUSTOM_WEAPON)&&g->player_count>0&&a->cooldown<=0.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);float tx=hasGoal?goal.x-p->position.x:dx,tz=hasGoal?goal.z-p->position.z:dz;float td=sqrtf(tx*tx+tz*tz);shot->velocity=BwVec3(tx/(td>.01f?td:1)*18.0f,0,tz/(td>.01f?td:1)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
+   else if((rule->action==BW_DO_SHOOT||rule->action==BW_DO_CUSTOM_WEAPON)&&g->player_count>0&&(a->cooldown<=0.0f||rule->condition==BW_IF_TIMER)){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);float tx=hasGoal?goal.x-p->position.x:dx,tz=hasGoal?goal.z-p->position.z:dz;float td=sqrtf(tx*tx+tz*tz);shot->velocity=BwVec3(tx/(td>.01f?td:1)*18.0f,0,tz/(td>.01f?td:1)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
    if(rule->condition==BW_IF_SHOT||rule->condition==BW_IF_ON_DEATH)a->was_shot=false;
   }
   if(a->vertical_velocity!=0.0f||a->position.y>0.0f){a->vertical_velocity-=9.8f*dt;a->position.y+=a->vertical_velocity*dt;if(a->position.y<0.0f){a->position.y=0.0f;a->vertical_velocity=0.0f;}}
@@ -152,12 +153,43 @@ static void update_npcs(BwGame *g,float dt){
  }
 }
 static void update_props(BwGame *g,float dt){
- for(int i=0;i<g->prop_count;++i){BwProp *o=&g->props[i];if(!o->active)continue;o->velocity.y-=9.8f*dt;o->position.x+=o->velocity.x*dt;o->position.z+=o->velocity.z*dt;
+ for(int i=0;i<g->prop_count;++i){BwProp *o=&g->props[i];if(!o->active)continue;
+  o->velocity.y-=9.8f*dt;o->position.x+=o->velocity.x*dt;o->position.z+=o->velocity.z*dt;
   for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;if(o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half&&o->position.y-o->half<v->position.y+v->half&&o->position.y+o->half>v->position.y-v->half){o->position.x-=o->velocity.x*dt;o->position.z-=o->velocity.z*dt;o->velocity.x=0;o->velocity.z=0;}}
-  float oldY=o->position.y;o->position.y+=o->velocity.y*dt;if(o->velocity.y<=0.0f){float landing=o->half;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;bool over=o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half;float top=v->position.y+v->half;if(over&&oldY-o->half>=top-0.02f&&o->position.y-o->half<=top&&top+o->half>landing)landing=top+o->half;}if(o->position.y<landing){o->position.y=landing;o->velocity.y=0;}}o->velocity.x*=0.985f;o->velocity.z*=0.985f;
+  float oldY=o->position.y;o->position.y+=o->velocity.y*dt;if(o->velocity.y<=0.0f){float landing=o->half;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;bool over=o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half;float top=v->position.y+v->half;if(over&&oldY-o->half>=top-0.02f&&o->position.y-o->half<=top&&top+o->half>landing)landing=top+o->half;}if(o->position.y<landing){o->position.y=landing;o->velocity.y=0;}}
+  bool falling=o->velocity.y<-.05f,stopped=o->was_falling&&!falling;o->was_falling=falling;o->velocity.x*=0.985f;o->velocity.z*=0.985f;
+  for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||rule->owner_type!=BW_OWNER_PROP||rule->owner!=i)continue;bool trigger=false;float nearest=9999.0f;BwVec3 goal;
+   for(int t=0;t<g->player_count;++t){BwPlayer *pl=&g->players[g->active_slots[t]];float x=pl->position.x-o->position.x,z=pl->position.z-o->position.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;goal=pl->position;}}
+   if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<.9f;else if(rule->condition==BW_IF_ON_FALL)trigger=falling;else if(rule->condition==BW_IF_ON_STOP_FALLING||rule->condition==BW_IF_ON_LAND)trigger=stopped;else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
+   else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-o->position.x,z=g->pickups[k].position.z-o->position.z;if(x*x+z*z<9)trigger=true;}}
+   if(!trigger)continue;
+   BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
+   if(rule->action==BW_DO_MOVE_TOWARD&&has){float x=target.x-o->position.x,z=target.z-o->position.z,d=sqrtf(x*x+z*z);if(d>.01f){o->velocity.x=x/d*2.0f;o->velocity.z=z/d*2.0f;}}
+   else if(rule->action==BW_DO_MOVE_CAMERA){o->velocity.x+=goal.x>o->position.x?1.0f:-1.0f;o->velocity.z+=goal.z>o->position.z?1.0f:-1.0f;}
+   else if(rule->action==BW_DO_GREEN)o->color=bw_slot_colors[0];
+   else if(rule->action==BW_DO_DISAPPEAR)o->active=false;
+   else if(rule->action==BW_DO_RESPAWN){o->position=o->spawn_position;o->velocity=BwVec3(0,0,0);}
+   else if(rule->action==BW_DO_SUMMON)summon_from_rule(g,rule,BwVec3(o->position.x+1.5f,o->position.y+.6f,o->position.z));
+   else if(rule->action==BW_DO_PLACE_BLOCK)bw_world_add_block(g,BwVec3(o->position.x,0.5f,o->position.z),.5f,bw_slot_colors[0]);
+  }
  }
 }
-void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected){bool wasGrounded=g->players[i].grounded;update_one(g,i,dt);run_player_rules(g,i,wasGrounded,dt);}update_npcs(g,dt);update_props(g,dt);update_projectiles(g,dt);}
+static void update_block_and_pickup_rules(BwGame *g,float dt){
+ for(int r=0;r<g->rule_count;++r){BwRule *rule=&g->rules[r];if(!rule->active||(rule->owner_type!=BW_OWNER_BLOCK&&rule->owner_type!=BW_OWNER_PICKUP))continue;BwVec3 at;if(!object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,&at))continue;bool trigger=false;float nearest=9999.0f;int player=-1;
+  for(int t=0;t<g->player_count;++t){int pi=g->active_slots[t];float x=g->players[pi].position.x-at.x,z=g->players[pi].position.z-at.z,d=sqrtf(x*x+z*z);if(d<nearest){nearest=d;player=pi;}}
+  if(rule->condition==BW_IF_SEE_PLAYER)trigger=nearest<12.0f;else if(rule->condition==BW_IF_TOUCH_PLAYER)trigger=nearest<1.0f;else if(rule->condition==BW_IF_TIMER){rule->timer-=dt;if(rule->timer<=0){trigger=true;rule->timer=2.0f;}}
+  else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float x=g->pickups[k].position.x-at.x,z=g->pickups[k].position.z-at.z;if(x*x+z*z<9.0f)trigger=true;}}
+  if(!trigger)continue;BwVec3 target;bool has=object_position(g,rule->target_type,rule->target_index,&target);
+  if(rule->action==BW_DO_MOVE_TOWARD&&has){float x=target.x-at.x,z=target.z-at.z,d=sqrtf(x*x+z*z);if(d>.01f){at.x+=x/d*2.0f*dt;at.z+=z/d*2.0f*dt;set_object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,at);}}
+  else if(rule->action==BW_DO_GREEN&&rule->owner_type==BW_OWNER_BLOCK)g->blocks[rule->owner].color=bw_slot_colors[0];
+  else if(rule->action==BW_DO_DISAPPEAR&&rule->owner_type==BW_OWNER_PICKUP)g->pickups[rule->owner].active=false;
+  else if(rule->action==BW_DO_SUMMON)summon_from_rule(g,rule,BwVec3(at.x+1.5f,at.y+.6f,at.z));
+  else if(rule->action==BW_DO_PLACE_BLOCK)bw_world_add_block(g,BwVec3(at.x,0.5f,at.z),.5f,bw_slot_colors[0]);
+  else if(rule->action==BW_DO_MOVE_CAMERA&&player>=0){BwPlayer *pl=&g->players[player];at.x+=sinf(pl->yaw)*2.0f*dt;at.z+=cosf(pl->yaw)*2.0f*dt;set_object_position(g,rule->owner_type==BW_OWNER_BLOCK?3:4,rule->owner,at);}
+ }
+}
+
+void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected){bool wasGrounded=g->players[i].grounded;update_one(g,i,dt);run_player_rules(g,i,wasGrounded,dt);}update_npcs(g,dt);update_props(g,dt);update_block_and_pickup_rules(g,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}
 
