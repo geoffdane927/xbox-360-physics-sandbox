@@ -2,7 +2,6 @@
 #define BW_GAME_H
 #include <xtl.h>
 #include <d3d9.h>
-#include <xinput.h>
 #define BW_MAX_PLAYERS 4
 #define BW_MAX_BLOCKS 256
 #define BW_INVENTORY_SLOTS 8
