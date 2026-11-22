@@ -99,7 +99,7 @@ static void controls_menu(const BwGame *g){
  }
  menu_text(790,180,"CONTROLS",3,accent);menu_text(790,220,"LEFT STICK MOVE",2,white);menu_text(790,246,"RIGHT STICK LOOK",2,white);
  menu_text(790,272,"BACK PAUSE MODE",2,white);menu_text(790,298,"Y EXIT",2,white);
- menu_text(790,344,"PLAYER",2,accent);menu_text(790,370,"A JUMP",2,white);menu_text(790,396,"X PLACE",2,white);menu_text(790,422,"DPAD COLOR",2,white);
+ menu_text(790,344,"PLAYER",2,accent);menu_text(790,370,"A JUMP",2,white);menu_text(790,396,"X PLACE",2,white);menu_text(790,422,"DPAD COLOR",2,white);menu_text(790,438,"LB RB ITEM",2,white);
  menu_text(790,458,"EDITOR",2,accent);menu_text(790,484,"A PLACE X REMOVE",2,white);menu_text(790,510,"L STICK SPIKE MODE",2,white);menu_text(790,536,"B GRID",2,white);
  menu_text(235,570,"DPAD SELECT  LEFT/RIGHT ADJUST",2,muted);menu_text(235,598,"A CONFIRM  B RESUME",2,muted);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
@@ -332,7 +332,7 @@ void bw_renderer_draw(const BwGame *g){
  dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,16,22,32),1.0f,0);
  if(FAILED(dev->BeginScene()))return;
 
- /* Split-screen is opt-in. Multiple connected pads alone never divide the TV. */
+ /* Every joined controller receives its own view. */
  int view_count=g->player_count>1?g->player_count:1;
  for(int i=0;i<view_count;++i){
   int slot=(view_count>1)?g->active_slots[i]:g->active_slots[0];

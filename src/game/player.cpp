@@ -61,7 +61,7 @@ static void update_one(BwGame *g,int i,float dt)
     for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==i)continue;BwPlayer *other=&g->players[target];
      float ox=other->position.x-p->position.x,oy=other->position.y-p->position.y,oz=other->position.z-p->position.z;
      float along=ox*fx+oy*fy+oz*fz;float side2=ox*ox+oy*oy+oz*oz-along*along;
-     if(along>0.0f&&along<=1.5f&&side2<0.55f&&fabsf(oy)<1.5f){other->position=g->spawn_point;other->vertical_velocity=0.0f;other->grounded=true;}
+     if(along>0.0f&&along<=1.0f&&side2<0.55f&&fabsf(oy)<1.5f){other->position=g->spawn_point;other->vertical_velocity=0.0f;other->grounded=true;}
     }
    }else{
     for(int q=0;q<64;++q)if(!g->projectiles[q].active){
