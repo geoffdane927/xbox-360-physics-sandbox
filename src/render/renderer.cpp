@@ -241,8 +241,9 @@ static void scene(const BwGame *g,int slot,int detail){
   float fx=sinf(cam->yaw),fz=cosf(cam->yaw);
   BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
   preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f)+0.5f;preview.z=floorf(preview.z+0.5f);
-  if(g->placing_spikes){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
-  else wire_box(preview,v3(0.5f,0.5f,0.5f),D3DCOLOR_ARGB(255,40,230,255));
+  if(g->players[slot].selected_weapon==0){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
+  else if(g->players[slot].selected_weapon==3){BwVec3 base(preview.x,0.02f,preview.z);line(base,v3(base.x,2.5f,base.z),D3DCOLOR_ARGB(255,220,220,225));quad(v3(base.x,2.35f,base.z),v3(base.x+.85f,2.15f,base.z),v3(base.x+.85f,1.65f,base.z),v3(base.x,1.85f,base.z),D3DCOLOR_ARGB(255,220,55,55));}
+  else wire_box(preview,v3(0.22f,0.22f,0.22f),D3DCOLOR_ARGB(255,40,230,255));
  }
 }
 

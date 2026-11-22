@@ -63,6 +63,8 @@ static void update_projectiles(BwGame *g,float dt){
   if(s->position.y<0.0f){s->active=false;continue;}
   for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(s->position.x>v->position.x-v->half&&s->position.x<v->position.x+v->half&&s->position.y>v->position.y-v->half&&s->position.y<v->position.y+v->half&&s->position.z>v->position.z-v->half&&s->position.z<v->position.z+v->half){s->active=false;break;}}
   if(!s->active)continue;
+  if(!s->npc_owned){for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(a->active&&a->type>0&&fabsf(s->position.x-a->position.x)<0.45f&&fabsf(s->position.z-a->position.z)<0.45f&&s->position.y>0.0f&&s->position.y<2.0f){a->active=false;s->active=false;break;}}}
+  if(!s->active)continue;
   for(int t=0;t<g->player_count;++t){int target=g->active_slots[t];if(target==s->owner)continue;BwPlayer *p=&g->players[target];
    if(fabsf(s->position.x-p->position.x)<BW_PLAYER_RADIUS+0.12f&&fabsf(s->position.z-p->position.z)<BW_PLAYER_RADIUS+0.12f&&s->position.y>p->position.y-BW_EYE_HEIGHT&&s->position.y<p->position.y-BW_EYE_HEIGHT+BW_PLAYER_HEIGHT){p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;s->active=false;break;}
   }
