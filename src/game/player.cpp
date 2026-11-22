@@ -19,7 +19,7 @@ static void update_one(BwGame *g,int i,float dt)
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
- if(pad->pressed_lthumb)p->hotbar_page=1-p->hotbar_page;
+ if(g->editor_mode&&pad->pressed_lthumb)p->hotbar_page=1-p->hotbar_page;
  if(g->editor_mode){if(pad->pressed_lb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+7)%8;else p->selected_item=(p->selected_item+7)%8;}if(pad->pressed_rb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+1)%8;else p->selected_item=(p->selected_item+1)%8;}}
  else{if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+4)%5;if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%5;}
  if(p->weapon_anim>0.0f)p->weapon_anim-=dt;
@@ -74,6 +74,7 @@ static void update_projectiles(BwGame *g,float dt){
  }
 }
 static bool npc_has_shot_rule(const BwGame *g,int n){for(int r=0;r<g->rule_count;++r)if(g->rules[r].active&&g->rules[r].npc==n&&g->rules[r].condition==BW_IF_SHOT)return true;return false;}
+static bool npc_blocked(const BwGame *g,float x,float z){for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&x>v->position.x-v->half-.32f&&x<v->position.x+v->half+.32f&&z>v->position.z-v->half-.32f&&z<v->position.z+v->half+.32f)return true;}return false;}
 static bool npc_bumps_green(const BwGame *g,const BwNpc *a,float dx,float dz){float x=a->position.x+dx,z=a->position.z+dz;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(!v->spike&&v->color==bw_slot_colors[0]&&x>v->position.x-v->half-.35f&&x<v->position.x+v->half+.35f&&z>v->position.z-v->half-.35f&&z<v->position.z+v->half+.35f)return true;}return false;}
 static void update_npcs(BwGame *g,float dt){
  for(int n=0;n<g->npc_count;++n){BwNpc *a=&g->npcs[n];if(!a->active)continue;a->anim+=dt;a->cooldown-=dt;
@@ -88,8 +89,8 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->condition==BW_IF_TIMER&&a->cooldown<=0.0f){trigger=true;a->cooldown=1.0f;}
    else if(rule->condition==BW_IF_NEAR_ITEM){for(int k=0;k<g->pickup_count;++k)if(g->pickups[k].active){float ix=g->pickups[k].position.x-a->position.x,iz=g->pickups[k].position.z-a->position.z;if(ix*ix+iz*iz<9.0f)trigger=true;}}
    if(!trigger)continue;scripted=true;
-   if(rule->action==BW_DO_MOVE_TOWARD&&d>0.01f){a->position.x+=dx/d*2.0f*dt;a->position.z+=dz/d*2.0f*dt;}
-   else if(rule->action==BW_DO_MOVE_BACKWARD){a->position.x-=sinf(a->yaw)*2.0f*dt;a->position.z-=cosf(a->yaw)*2.0f*dt;}
+   if(rule->action==BW_DO_MOVE_TOWARD&&d>0.01f){float nx=a->position.x+dx/d*2.0f*dt,nz=a->position.z+dz/d*2.0f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}
+   else if(rule->action==BW_DO_MOVE_BACKWARD){float nx=a->position.x-sinf(a->yaw)*2.0f*dt,nz=a->position.z-cosf(a->yaw)*2.0f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}
    else if(rule->action==BW_DO_TURN)a->yaw+=3.0f*dt;
    else if(rule->action==BW_DO_GREEN)a->color=bw_slot_colors[0];
    else if(rule->action==BW_DO_DISAPPEAR)a->active=false;
@@ -98,16 +99,17 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->action==BW_DO_SHOOT&&g->player_count>0&&a->cooldown<=0.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);shot->velocity=BwVec3(dx/(d>0.01f?d:1.0f)*18.0f,0,dz/(d>0.01f?d:1.0f)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
    if(rule->condition==BW_IF_SHOT)a->was_shot=false;
   }
+  if(a->vertical_velocity!=0.0f||a->position.y>0.0f){a->vertical_velocity-=9.8f*dt;a->position.y+=a->vertical_velocity*dt;if(a->position.y<0.0f){a->position.y=0.0f;a->vertical_velocity=0.0f;}}
   if(scripted)continue;if(g->player_count<=0)continue;
-  if(a->type==0){if(d>2.5f&&d<20.0f){a->position.x+=dx/d*1.2f*dt;a->position.z+=dz/d*1.2f*dt;}continue;}
-  if(a->type==1){if(d>0.85f){a->position.x+=dx/d*1.8f*dt;a->position.z+=dz/d*1.8f*dt;}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}
+  if(a->type==0){if(d>2.5f&&d<20.0f){float nx=a->position.x+dx/d*1.2f*dt,nz=a->position.z+dz/d*1.2f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}continue;}
+  if(a->type==1){if(d>0.85f){float nx=a->position.x+dx/d*1.8f*dt,nz=a->position.z+dz/d*1.8f*dt;if(!npc_blocked(g,nx,nz)){a->position.x=nx;a->position.z=nz;}}else if(a->cooldown<=0){p->position=g->spawn_point;p->vertical_velocity=0;p->grounded=true;a->cooldown=1.0f;}}
   else if(a->type==2&&a->cooldown<=0&&d<18.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.25f,a->position.z);shot->velocity=BwVec3(dx/d*18.0f,0,dz/d*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.5f;break;}}
  }
 }
 static void update_props(BwGame *g,float dt){
  for(int i=0;i<g->prop_count;++i){BwProp *o=&g->props[i];if(!o->active)continue;o->velocity.y-=9.8f*dt;o->position.x+=o->velocity.x*dt;o->position.z+=o->velocity.z*dt;
   for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;if(o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half&&o->position.y-o->half<v->position.y+v->half&&o->position.y+o->half>v->position.y-v->half){o->position.x-=o->velocity.x*dt;o->position.z-=o->velocity.z*dt;o->velocity.x=0;o->velocity.z=0;}}
-  o->position.y+=o->velocity.y*dt;if(o->position.y<o->half){o->position.y=o->half;o->velocity.y=0;}o->velocity.x*=0.985f;o->velocity.z*=0.985f;
+  float oldY=o->position.y;o->position.y+=o->velocity.y*dt;if(o->velocity.y<=0.0f){float landing=o->half;for(int b=0;b<g->block_count;++b){const BwBlock *v=&g->blocks[b];if(v->spike)continue;bool over=o->position.x+o->half>v->position.x-v->half&&o->position.x-o->half<v->position.x+v->half&&o->position.z+o->half>v->position.z-v->half&&o->position.z-o->half<v->position.z+v->half;float top=v->position.y+v->half;if(over&&oldY-o->half>=top-0.02f&&o->position.y-o->half<=top&&top+o->half>landing)landing=top+o->half;}if(o->position.y<landing){o->position.y=landing;o->velocity.y=0;}}o->velocity.x*=0.985f;o->velocity.z*=0.985f;
  }
 }
 void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected)update_one(g,i,dt);update_npcs(g,dt);update_props(g,dt);update_projectiles(g,dt);}

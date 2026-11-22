@@ -219,7 +219,7 @@ static void scene(const BwGame *g,int slot,int detail){
  for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
  for(int q=0;q<g->pickup_count;++q)if(g->pickups[q].active)box(g->pickups[q].position,v3(.22f,.22f,.22f),g->pickups[q].type==1?D3DCOLOR_ARGB(255,60,170,255):D3DCOLOR_ARGB(255,210,210,220));
  for(int q=0;q<g->prop_count;++q)if(g->props[q].active)box(g->props[q].position,v3(g->props[q].half,g->props[q].half,g->props[q].half),g->props[q].color);
- for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->color?a->color:(a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
+ for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->color?a->color:(a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));box(v3(a->position.x,a->position.y+.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,a->position.y+1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
   /* The active camera is positioned at eye height inside its own body.
@@ -306,7 +306,7 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
- menu_n=0;const char *nm=p->hotbar_page?(item_names[p->selected_item]):(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM"))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
+ menu_n=0;if(p->hotbar_page){static const char *short_names[8]={"SPK","BLS","SWD","FLG","FRI","ENM","GUN","BOX"};for(int i=0;i<8;++i)menu_text(start+i*(w+gap)+8.0f,y+10.0f,short_names[i],1,p->selected_item==i?D3DCOLOR_ARGB(255,255,240,150):D3DCOLOR_ARGB(255,190,205,220));}const char *nm=p->hotbar_page?(item_names[p->selected_item]):(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM"))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
  if(!g->editor_mode&&(p->selected_weapon==1||p->selected_weapon==2)){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
