@@ -59,7 +59,6 @@ static void update_one(BwGame *g,int i,float dt)
   if(pad->pressed_x&&p->selected_weapon==1&&p->has_blaster&&p->blaster_durability>0.0f){p->weapon_anim=0.18f;p->blaster_durability-=5.0f;if(p->blaster_durability<=0)p->has_blaster=false;for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *s=&g->projectiles[q];float cp=cosf(p->pitch);s->position=BwVec3(p->position.x+sinf(p->yaw)*cp*.65f,p->position.y+sinf(p->pitch)*.65f,p->position.z+cosf(p->yaw)*cp*.65f);s->velocity=BwVec3(sinf(p->yaw)*cp*28.0f,sinf(p->pitch)*28.0f,cosf(p->yaw)*cp*28.0f);s->owner=i;s->life=3.0f;s->active=true;s->npc_owned=false;break;}} }
 
 }
-static bool npc_has_shot_rule(const BwGame *g,int n);
 static void update_projectiles(BwGame *g,float dt){
  for(int q=0;q<64;++q){BwProjectile *s=&g->projectiles[q];if(!s->active)continue;
   s->life-=dt;if(s->life<=0.0f){s->active=false;continue;}
