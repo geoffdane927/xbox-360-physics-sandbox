@@ -96,7 +96,7 @@ static void update_npcs(BwGame *g,float dt){
    else if(rule->action==BW_DO_DISAPPEAR)a->active=false;
    else if(rule->action==BW_DO_RESPAWN){a->position=a->spawn_position;a->vertical_velocity=0.0f;}
    else if(rule->action==BW_DO_JUMP)a->vertical_velocity=5.0f;
-   else if(rule->action==BW_DO_SHOOT&&g->player_count>0&&a->cooldown<=0.0f){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);shot->velocity=BwVec3(dx/(d>0.01f?d:1.0f)*18.0f,0,dz/(d>0.01f?d:1.0f)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
+   else if(rule->action==BW_DO_SHOOT&&g->player_count>0&&(a->cooldown<=0.0f||rule->condition==BW_IF_TIMER)){for(int q=0;q<64;++q)if(!g->projectiles[q].active){BwProjectile *shot=&g->projectiles[q];shot->position=BwVec3(a->position.x,1.2f,a->position.z);shot->velocity=BwVec3(dx/(d>0.01f?d:1.0f)*18.0f,0,dz/(d>0.01f?d:1.0f)*18.0f);shot->owner=-1;shot->life=2.5f;shot->active=true;shot->npc_owned=true;a->cooldown=1.0f;break;}}
    if(rule->condition==BW_IF_SHOT)a->was_shot=false;
   }
   if(a->vertical_velocity!=0.0f||a->position.y>0.0f){a->vertical_velocity-=9.8f*dt;a->position.y+=a->vertical_velocity*dt;if(a->position.y<0.0f){a->position.y=0.0f;a->vertical_velocity=0.0f;}}
