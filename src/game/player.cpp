@@ -217,6 +217,6 @@ bool bw_editor_select_object(BwGame *g,int player){
  if(bestType<0)return false;
  g->selected_object_type=bestType;g->selected_object_index=bestIndex;
  g->script_owner_type=bestType==0?BW_OWNER_NPC:(bestType==1?BW_OWNER_PROP:(bestType==2?BW_OWNER_BLOCK:BW_OWNER_PICKUP));
- g->script_owner=bestIndex;g->script_editor=true;g->paused=true;g->menu_selection=13;
+ g->script_owner=bestIndex;g->script_rule_index=0;int found=0;for(int r=0;r<g->rule_count;++r)if(g->rules[r].active&&g->rules[r].owner_type==g->script_owner_type&&g->rules[r].owner==g->script_owner){if(found++==0){g->script_condition=g->rules[r].condition;g->script_action=g->rules[r].action;g->script_target_type=g->rules[r].target_type;g->script_target_index=g->rules[r].target_index;g->script_summon_type=g->rules[r].parameter;break;}}g->script_editor=true;g->paused=true;g->menu_selection=13;
  return true;
 }
