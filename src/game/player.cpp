@@ -193,6 +193,65 @@ static void update_block_and_pickup_rules(BwGame *g,float dt){
  }
 }
 
+
+static void update_projectiles(BwGame *g,float dt)
+{
+ for(int q=0;q<64;++q){
+  BwProjectile *shot=&g->projectiles[q];
+  if(!shot->active)continue;
+  shot->life-=dt;
+  if(shot->life<=0.0f){shot->active=false;continue;}
+  BwVec3 old=shot->position;
+  shot->position.x+=shot->velocity.x*dt;
+  shot->position.y+=shot->velocity.y*dt;
+  shot->position.z+=shot->velocity.z*dt;
+  bool hit=false;
+  for(int b=0;b<g->block_count&&!hit;++b){
+   const BwBlock *block=&g->blocks[b];
+   if(block->color==0)continue;
+   if(shot->position.x>block->position.x-block->half&&shot->position.x<block->position.x+block->half&&
+      shot->position.y>block->position.y-block->half&&shot->position.y<block->position.y+block->half&&
+      shot->position.z>block->position.z-block->half&&shot->position.z<block->position.z+block->half)hit=true;
+  }
+  if(!hit&&shot->npc_owned){
+   for(int t=0;t<g->player_count&&!hit;++t){
+    int pi=g->active_slots[t];
+    if(pi<0||pi>=BW_MAX_PLAYERS||pi==shot->owner)continue;
+    BwPlayer *p=&g->players[pi];
+    if(fabsf(shot->position.x-p->position.x)<BW_PLAYER_RADIUS+0.18f&&
+       fabsf(shot->position.y-(p->position.y-0.65f))<0.95f&&
+       fabsf(shot->position.z-p->position.z)<BW_PLAYER_RADIUS+0.18f){
+     p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;p->died_event=true;hit=true;
+    }
+   }
+  }else if(!hit){
+   for(int n=0;n<g->npc_count&&!hit;++n){
+    BwNpc *npc=&g->npcs[n];
+    if(!npc->active)continue;
+    if(fabsf(shot->position.x-npc->position.x)<0.55f&&
+       fabsf(shot->position.y-(npc->position.y+0.8f))<1.0f&&
+       fabsf(shot->position.z-npc->position.z)<0.55f){
+     npc->was_shot=true;
+     if(!npc_has_shot_rule(g,n))npc->active=false;
+     hit=true;
+    }
+   }
+   for(int t=0;t<g->player_count&&!hit;++t){
+    int pi=g->active_slots[t];
+    if(pi<0||pi>=BW_MAX_PLAYERS||pi==shot->owner)continue;
+    BwPlayer *p=&g->players[pi];
+    if(fabsf(shot->position.x-p->position.x)<BW_PLAYER_RADIUS+0.18f&&
+       fabsf(shot->position.y-(p->position.y-0.65f))<0.95f&&
+       fabsf(shot->position.z-p->position.z)<BW_PLAYER_RADIUS+0.18f){
+     p->position=g->spawn_point;p->vertical_velocity=0.0f;p->grounded=true;p->died_event=true;hit=true;
+    }
+   }
+  }
+  if(hit)shot->active=false;
+  (void)old;
+ }
+}
+
 void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected){bool wasGrounded=g->players[i].grounded;update_one(g,i,dt);run_player_rules(g,i,wasGrounded,dt);}update_npcs(g,dt);update_props(g,dt);update_block_and_pickup_rules(g,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}
