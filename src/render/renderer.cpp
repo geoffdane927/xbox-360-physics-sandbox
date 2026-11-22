@@ -32,14 +32,22 @@ static int glyph_index(char c){
  if(c==':')return 36;
  return -1;
 }
-static Vtx menu_v[18000]; static int menu_n=0;
+static Vtx menu_v[90000]; static int menu_n=0;
 static void menu_pixel(float x,float y,float scale,DWORD color){
- if(menu_n+6>18000)return;
+ if(menu_n+6>90000)return;
  float l=(x/(float)SW)*2.0f-1.0f,r=((x+scale)/(float)SW)*2.0f-1.0f;
  float t=1.0f-(y/(float)SH)*2.0f,b=1.0f-((y+scale)/(float)SH)*2.0f;
  Vtx *v=&menu_v[menu_n];
  const float px[6]={l,r,r,l,r,l},py[6]={t,t,b,t,b,b};
  for(int i=0;i<6;++i){v[i].x=px[i];v[i].y=py[i];v[i].z=0;v[i].w=1;v[i].color=color;}
+ menu_n+=6;
+}
+static void menu_rect(float x,float y,float w,float h,DWORD color){
+ if(menu_n+6>90000)return;
+ float l=(x/(float)SW)*2.0f-1.0f,r=((x+w)/(float)SW)*2.0f-1.0f;
+ float t=1.0f-(y/(float)SH)*2.0f,b=1.0f-((y+h)/(float)SH)*2.0f;
+ const float px[6]={l,r,r,l,r,l},py[6]={t,t,b,t,b,b};
+ for(int i=0;i<6;++i){menu_v[menu_n+i].x=px[i];menu_v[menu_n+i].y=py[i];menu_v[menu_n+i].z=0;menu_v[menu_n+i].w=1;menu_v[menu_n+i].color=color;}
  menu_n+=6;
 }
 static void menu_text(float x,float y,const char *s,float scale,DWORD color){
@@ -53,9 +61,8 @@ static void controls_menu(){
  DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200);
  DWORD panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205);
  /* Background panel, built as two triangles. */
- menu_pixel(0,0,1,panel); /* keep the pixel batch initialized */
- for(int y=118;y<604;y+=8)for(int x=280;x<1000;x+=8)menu_pixel((float)x,(float)y,8,panel);
- for(int x=300;x<980;x+=4)menu_pixel((float)x,142,4,accent);
+ menu_rect(280,118,720,486,panel);
+ menu_rect(300,142,680,4,accent);
  menu_text(430,160,"CONTROLS",5,white);
  menu_text(330,220,"LEFT STICK MOVE",3,white);
  menu_text(330,250,"RIGHT STICK LOOK",3,white);
