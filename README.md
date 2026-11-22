@@ -8,6 +8,7 @@ Native Xbox 360 sandbox/editor using the Xbox 360 XDK, Direct3D 9 and XInput.
 - Aim at an NPC, crate, block, spike, or pickup and press Y to open that object's script editor.
 - The script editor starts with the selected object as the rule owner. Press B or Y to close it.
 - Use D-pad up/down to move through the menu, left/right to change values, and A to add a rule.
+- Existing rules for the selected owner load into the IF/DO fields. Choose RULE TO EDIT, change its settings, then choose UPDATE RULE; DELETE RULE removes it.
 - You can also open Pause with Start and choose PLAYER as the script owner to create player rules.
 
 ## Script conditions
@@ -20,7 +21,7 @@ MOVE TOWARD, MOVE BACK, TURN AROUND, CHANGE GREEN, DISAPPEAR, RESPAWN, JUMP, SHO
 
 MOVE TOWARD has a target type and target index selector (player, NPC, crate, block, pickup). SUMMON selects a template (friendly NPC, sword NPC, blaster NPC, crate). Summoned NPCs/crates inherit the source object's other script rules, so you can make scripted reusable actors.
 
-Player scripts support camera-direction movement, jumping, respawning, placing blocks, summoning scripted actors, and custom projectile weapons. Example: set owner to PLAYER, IF to ON USE, DO to CUSTOM WEAPON.
+Player scripts support camera-direction movement, jumping, respawning, placing blocks, summoning scripted actors, and custom projectile weapons. The pause-menu script owner defaults to PLAYER. Example: set owner to PLAYER, IF to ON USE, DO to CUSTOM WEAPON.
 
 Examples:
 - IF SEE PLAYER -> MOVE TOWARD (target PLAYER)
