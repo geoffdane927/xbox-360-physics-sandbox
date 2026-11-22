@@ -200,8 +200,8 @@ static void scene(const BwGame *g,int slot,int detail){
  if(radius<24)radius=24;
  if(g->show_grid)for(int i=-radius;i<=radius;i+=detail){
   float grid=(float)i+0.5f;
-  line(v3(grid,0,-(float)radius),v3(grid,0,(float)radius),D3DCOLOR_ARGB(255,45,57,70));
-  line(v3(-(float)radius,0,grid),v3((float)radius,0,grid),D3DCOLOR_ARGB(255,45,57,70));
+  line(v3(grid,0.01f,-(float)radius),v3(grid,0.01f,(float)radius),D3DCOLOR_ARGB(255,45,57,70));
+  line(v3(-(float)radius,0.01f,grid),v3((float)radius,0.01f,grid),D3DCOLOR_ARGB(255,45,57,70));
  }
  for(int i=0;i<g->block_count;++i){
   const BwBlock *b=&g->blocks[i];
