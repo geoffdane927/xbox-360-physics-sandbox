@@ -1,4 +1,5 @@
 #include "game/game.h"
+#include <stdio.h>
 const DWORD bw_slot_colors[BW_INVENTORY_SLOTS]={
  D3DCOLOR_ARGB(255,90,205,155),D3DCOLOR_ARGB(255,90,160,235),
  D3DCOLOR_ARGB(255,220,170,75),D3DCOLOR_ARGB(255,190,100,210),
@@ -7,6 +8,8 @@ const DWORD bw_slot_colors[BW_INVENTORY_SLOTS]={
 };
 void bw_world_add_block(BwGame *g,BwVec3 p,float h,DWORD c){if(g->block_count>=BW_MAX_BLOCKS)return;g->blocks[g->block_count++]=BwBlock(p,h,c);}
 void bw_world_add_pickup(BwGame *g,BwVec3 p,int type){if(g->pickup_count>=32)return;BwPickup *v=&g->pickups[g->pickup_count++];v->position=p;v->type=type;v->active=true;}
+void bw_world_add_npc(BwGame *g,BwVec3 p,int type){if(g->npc_count>=8)return;BwNpc *n=&g->npcs[g->npc_count++];n->position=p;n->spawn_position=p;n->type=type;n->color=type==0?D3DCOLOR_ARGB(255,70,210,120):(type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));n->active=true;n->cooldown=0.0f;}
+void bw_world_add_prop(BwGame *g,BwVec3 p){if(g->prop_count>=BW_MAX_PROPS)return;BwProp *v=&g->props[g->prop_count++];v->position=p;v->velocity=BwVec3(0,0,0);v->half=0.5f;v->color=D3DCOLOR_ARGB(255,145,155,170);v->active=true;}
 void bw_world_add_spike(BwGame *g,BwVec3 p){
  if(g->block_count>=BW_MAX_BLOCKS)return;
  BwBlock b(p,0.5f,D3DCOLOR_ARGB(255,190,65,65));b.spike=true;
@@ -14,7 +17,40 @@ void bw_world_add_spike(BwGame *g,BwVec3 p){
 }
 void bw_world_init(BwGame *g)
 {
- g->block_count=0;g->pickup_count=0;g->npc_count=0;g->placing_spikes=false;
+ g->block_count=0;g->pickup_count=0;g->npc_count=0;g->prop_count=0;g->rule_count=0;g->placing_spikes=false;
  bw_world_add_pickup(g,BwVec3(3.0f,0.6f,-3.0f),1);bw_world_add_pickup(g,BwVec3(-3.0f,0.6f,-3.0f),2);
- g->npcs[0].position=BwVec3(4,0,2);g->npcs[0].type=0;g->npcs[0].active=true;g->npcs[1].position=BwVec3(-4,0,3);g->npcs[1].type=1;g->npcs[1].active=true;g->npcs[2].position=BwVec3(0,0,6);g->npcs[2].type=2;g->npcs[2].active=true;g->npc_count=3;
+ bw_world_add_npc(g,BwVec3(4,0,2),0);bw_world_add_npc(g,BwVec3(-4,0,3),1);bw_world_add_npc(g,BwVec3(0,0,6),2);
+}
+
+/* Development-kit save slot. Hdd1 is persistent devkit/Xenia HDD storage. */
+struct BwSaveHeader { DWORD magic,version,blocks,pickups,npcs,props,rules; };
+bool bw_world_save(const BwGame *g){
+ FILE *f=fopen("Hdd1:\\BlockWorks360.sav","wb");if(!f)return false;
+ BwSaveHeader h;h.magic=0x42573630;h.version=2;h.blocks=g->block_count;h.pickups=g->pickup_count;h.npcs=g->npc_count;h.props=g->prop_count;h.rules=g->rule_count;
+ bool ok=fwrite(&h,sizeof(h),1,f)==1;
+ if(ok)ok=fwrite(g->blocks,sizeof(BwBlock),h.blocks,f)==h.blocks;
+ if(ok)ok=fwrite(g->pickups,sizeof(BwPickup),h.pickups,f)==h.pickups;
+ if(ok)ok=fwrite(g->npcs,sizeof(BwNpc),h.npcs,f)==h.npcs;
+ if(ok)ok=fwrite(g->props,sizeof(BwProp),h.props,f)==h.props;
+ if(ok)ok=fwrite(g->rules,sizeof(BwRule),h.rules,f)==h.rules;
+ if(ok)ok=fwrite(&g->spawn_point,sizeof(BwVec3),1,f)==1;
+ if(ok)ok=fwrite(&g->player_speed,sizeof(float),1,f)==1;
+ if(ok)ok=fwrite(&g->jump_height,sizeof(float),1,f)==1;
+ if(ok)ok=fwrite(&g->gravity,sizeof(float),1,f)==1;
+ fclose(f);return ok;
+}
+bool bw_world_load(BwGame *g){
+ FILE *f=fopen("Hdd1:\\BlockWorks360.sav","rb");if(!f)return false;
+ BwSaveHeader h;bool ok=fread(&h,sizeof(h),1,f)==1&&h.magic==0x42573630&&h.version==2&&h.blocks<=BW_MAX_BLOCKS&&h.pickups<=32&&h.npcs<=8&&h.props<=BW_MAX_PROPS&&h.rules<=BW_MAX_RULES;
+ if(ok)ok=fread(g->blocks,sizeof(BwBlock),h.blocks,f)==h.blocks;
+ if(ok)ok=fread(g->pickups,sizeof(BwPickup),h.pickups,f)==h.pickups;
+ if(ok)ok=fread(g->npcs,sizeof(BwNpc),h.npcs,f)==h.npcs;
+ if(ok)ok=fread(g->props,sizeof(BwProp),h.props,f)==h.props;
+ if(ok)ok=fread(g->rules,sizeof(BwRule),h.rules,f)==h.rules;
+ if(ok)ok=fread(&g->spawn_point,sizeof(BwVec3),1,f)==1;
+ if(ok)ok=fread(&g->player_speed,sizeof(float),1,f)==1;
+ if(ok)ok=fread(&g->jump_height,sizeof(float),1,f)==1;
+ if(ok)ok=fread(&g->gravity,sizeof(float),1,f)==1;
+ fclose(f);if(!ok)return false;
+ g->block_count=(int)h.blocks;g->pickup_count=(int)h.pickups;g->npc_count=(int)h.npcs;g->prop_count=(int)h.props;g->rule_count=(int)h.rules;return true;
 }
