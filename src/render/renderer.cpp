@@ -212,7 +212,7 @@ static void scene(const BwGame *g,int slot,int detail){
  }
  for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
  for(int q=0;q<g->pickup_count;++q)if(g->pickups[q].active)box(g->pickups[q].position,v3(.22f,.22f,.22f),g->pickups[q].type==1?D3DCOLOR_ARGB(255,60,170,255):D3DCOLOR_ARGB(255,210,210,220));
- for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){BwNpc *a=&g->npcs[q];DWORD c=a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
+ for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55));box(v3(a->position.x,.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
   /* The active camera is positioned at eye height inside its own body.
