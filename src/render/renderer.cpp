@@ -190,12 +190,12 @@ static void scene(const BwGame *g,int slot,int detail){
   const BwBlock *b=&g->blocks[i];if(b->color==0)continue;
   float x=b->position.x-cam->position.x,y=b->position.y-cam->position.y,z=b->position.z-cam->position.z;
   if(x*x+y*y+z*z<=g->render_distance*g->render_distance){
-   if(b->spike)spike_mesh(b);else box(b->position,v3(b->half,b->half,b->half),b->color);
+   if(b->spike)spike_mesh(b);else box(b->position,v3(b->half,b->half,b->half),b->ice?D3DCOLOR_ARGB(255,145,220,245):b->color);
   }
  }
  for(int q=0;q<64;++q)if(g->projectiles[q].active){BwVec3 p=g->projectiles[q].position;box(p,v3(.10f,.10f,.10f),D3DCOLOR_ARGB(255,255,190,45));}
  for(int q=0;q<g->pickup_count;++q)if(g->pickups[q].active)box(g->pickups[q].position,v3(.22f,.22f,.22f),g->pickups[q].type==1?D3DCOLOR_ARGB(255,60,170,255):D3DCOLOR_ARGB(255,210,210,220));
- for(int q=0;q<g->prop_count;++q)if(g->props[q].active)box(g->props[q].position,v3(g->props[q].half,g->props[q].half,g->props[q].half),g->props[q].color);
+ for(int q=0;q<g->prop_count;++q)if(g->props[q].active)box(g->props[q].position,v3(g->props[q].half,g->props[q].half,g->props[q].half),g->props[q].color);\n for(int q=0;q<g->link_count;++q){const BwLink *l=&g->links[q];if(l->active&&l->a>=0&&l->b>=0&&l->a<g->prop_count&&l->b<g->prop_count&&g->props[l->a].active&&g->props[l->b].active){DWORD c=l->type==0?D3DCOLOR_ARGB(255,220,190,80):(l->type==1?D3DCOLOR_ARGB(255,80,190,230):(l->type==2?D3DCOLOR_ARGB(255,190,120,230):D3DCOLOR_ARGB(255,230,100,70)));line(g->props[l->a].position,g->props[l->b].position,c);}}
  for(int q=0;q<g->npc_count;++q)if(g->npcs[q].active){const BwNpc *a=&g->npcs[q];DWORD c=a->color?a->color:(a->type==0?D3DCOLOR_ARGB(255,70,210,120):(a->type==1?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));box(v3(a->position.x,a->position.y+.85f,a->position.z),v3(.32f,.85f,.32f),c);box(v3(a->position.x,a->position.y+1.85f,a->position.z),v3(.24f,.24f,.24f),D3DCOLOR_ARGB(255,210,180,145));}
  for(int i=0;i<g->player_count;++i){
   int s=g->active_slots[i];
@@ -226,7 +226,7 @@ static void scene(const BwGame *g,int slot,int detail){
   BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
   preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f)+0.5f;preview.z=floorf(preview.z+0.5f);
   const BwPlayer *ep=&g->players[slot];
-  if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);
+  if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);\n  else if(ep->hotbar_page==2)wire_box(preview,v3(.25f,.25f,.25f),ep->selected_item==0?D3DCOLOR_ARGB(255,220,190,80):(ep->selected_item==1?D3DCOLOR_ARGB(255,80,190,230):(ep->selected_item==2?D3DCOLOR_ARGB(255,190,120,230):(ep->selected_item==3?D3DCOLOR_ARGB(255,230,100,70):D3DCOLOR_ARGB(255,145,220,245))));
   else if(ep->selected_item==0){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
   else if(ep->selected_item==3){BwVec3 base(preview.x,0.02f,preview.z);line(base,v3(base.x,2.5f,base.z),D3DCOLOR_ARGB(255,220,220,225));quad(v3(base.x,2.35f,base.z),v3(base.x+.85f,2.15f,base.z),v3(base.x+.85f,1.65f,base.z),v3(base.x,1.85f,base.z),D3DCOLOR_ARGB(255,220,55,55));}
   else if(ep->selected_item==4||ep->selected_item==5||ep->selected_item==6)wire_box(v3(preview.x,.85f,preview.z),v3(.32f,.85f,.32f),ep->selected_item==4?D3DCOLOR_ARGB(255,70,210,120):(ep->selected_item==5?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));
@@ -276,14 +276,14 @@ static void hud(const BwGame *g,int slot,View vp){
  float total=8*w+7*gap,start=vp.x+(vp.w-total)*.5f,y=vp.y+vp.h-h-18*s;
  DWORD mode=g->editor_mode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
  const BwPlayer *p=&g->players[slot];
- static const char *item_names[8]={"SPIKE","BLAST","SWORD","FLAG","FRIEND","SWORD","GUN","CRATE"};
+ static const char *item_names[8]={"SPIKE","BLAST","SWORD","FLAG","FRIEND","SWORD","GUN","CRATE"};static const char *tool_names[8]={"GLUE","ROPE","HINGE","MOTOR","ICE","CRATE","",""};
  for(int i=0;i<8;++i){float x=start+i*(w+gap);bool active=p->hotbar_page==0?(i==p->selected_slot):(i==p->selected_item);hudrect(v,&n,x,y,w,h,active?mode:D3DCOLOR_ARGB(255,125,135,150));if(p->hotbar_page==0)hudrect(v,&n,x+9*s,y+8*s,16*s,14*s,bw_slot_colors[i]);}
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
  dev->SetViewport(&full);
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
- menu_n=0;if(p->hotbar_page){static const char *short_names[8]={"SPK","BLS","SWD","FLG","FRI","ENM","GUN","BOX"};for(int i=0;i<8;++i)menu_text(start+i*(w+gap)+8.0f,y+10.0f,short_names[i],1,p->selected_item==i?D3DCOLOR_ARGB(255,255,240,150):D3DCOLOR_ARGB(255,190,205,220));}const char *nm=p->hotbar_page?(item_names[p->selected_item]):(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM"))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
+ menu_n=0;if(p->hotbar_page){static const char *short_names[8]={"SPK","BLS","SWD","FLG","FRI","ENM","GUN","BOX"};static const char *tool_short[8]={"GLU","ROP","HNG","MTR","ICE","BOX","",""};for(int i=0;i<8;++i)menu_text(start+i*(w+gap)+8.0f,y+10.0f,p->hotbar_page==2?tool_short[i]:short_names[i],1,p->selected_item==i?D3DCOLOR_ARGB(255,255,240,150):D3DCOLOR_ARGB(255,190,205,220));}const char *nm=p->hotbar_page==2?tool_names[p->selected_item]:(p->hotbar_page==1?item_names[p->selected_item]:(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM")))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
  if(!g->editor_mode&&(p->selected_weapon==1||p->selected_weapon==2)){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
