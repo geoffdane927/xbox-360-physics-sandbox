@@ -226,7 +226,7 @@ static void scene(const BwGame *g,int slot,int detail){
   BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
   preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f)+0.5f;preview.z=floorf(preview.z+0.5f);
   const BwPlayer *ep=&g->players[slot];
-  if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);  else if(ep->hotbar_page==2)wire_box(preview,v3(.25f,.25f,.25f),ep->selected_item==0?D3DCOLOR_ARGB(255,220,190,80):(ep->selected_item==1?D3DCOLOR_ARGB(255,80,190,230):(ep->selected_item==2?D3DCOLOR_ARGB(255,190,120,230):(ep->selected_item==3?D3DCOLOR_ARGB(255,230,100,70):D3DCOLOR_ARGB(255,145,220,245))));
+  if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);  else if(ep->hotbar_page==2)wire_box(preview,v3(.25f,.25f,.25f),ep->selected_item==0?D3DCOLOR_ARGB(255,220,190,80):(ep->selected_item==1?D3DCOLOR_ARGB(255,80,190,230):(ep->selected_item==2?D3DCOLOR_ARGB(255,190,120,230):(ep->selected_item==3?D3DCOLOR_ARGB(255,230,100,70):D3DCOLOR_ARGB(255,145,220,245)))));
   else if(ep->selected_item==0){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
   else if(ep->selected_item==3){BwVec3 base(preview.x,0.02f,preview.z);line(base,v3(base.x,2.5f,base.z),D3DCOLOR_ARGB(255,220,220,225));quad(v3(base.x,2.35f,base.z),v3(base.x+.85f,2.15f,base.z),v3(base.x+.85f,1.65f,base.z),v3(base.x,1.85f,base.z),D3DCOLOR_ARGB(255,220,55,55));}
   else if(ep->selected_item==4||ep->selected_item==5||ep->selected_item==6)wire_box(v3(preview.x,.85f,preview.z),v3(.32f,.85f,.32f),ep->selected_item==4?D3DCOLOR_ARGB(255,70,210,120):(ep->selected_item==5?D3DCOLOR_ARGB(255,220,75,65):D3DCOLOR_ARGB(255,210,145,55)));
