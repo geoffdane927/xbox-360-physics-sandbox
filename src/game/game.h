@@ -34,6 +34,7 @@ bool bw_world_load(BwGame*);
 bool bw_player_touches_spike(const BwGame*,float,float,float);
 bool bw_player_overlaps_block(float,float,float,const BwBlock*);
 bool bw_player_collides(const BwGame*,float,float,float);
+BwVec3 bw_editor_block_preview(const BwGame*,const BwPlayer*);
 void bw_players_update(BwGame*,float);
 void bw_quality_update(BwGame*,float);
 bool bw_renderer_open(void);

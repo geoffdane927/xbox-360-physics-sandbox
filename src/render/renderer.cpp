@@ -222,9 +222,7 @@ static void scene(const BwGame *g,int slot,int detail){
   else if(cam->selected_weapon==1&&cam->has_blaster){float recoil=cam->weapon_anim>0.0f?sinf(swing*3.14159f)*.18f:0.0f;BwVec3 gun=v3(hand.x-fx*recoil,hand.y-fy*recoil,hand.z-fz*recoil);box(gun,v3(.13f,.10f,.22f),D3DCOLOR_ARGB(255,65,75,90));line(v3(gun.x+fx*.20f,gun.y,gun.z+fz*.20f),v3(gun.x+fx*.52f,gun.y,gun.z+fz*.52f),D3DCOLOR_ARGB(255,180,190,205));}
  }
  if(g->editor_mode){
-  float fx=sinf(cam->yaw),fz=cosf(cam->yaw);
-  BwVec3 preview(cam->position.x+fx*4.0f,cam->position.y-0.5f,cam->position.z+fz*4.0f);
-  preview.x=floorf(preview.x+0.5f);preview.y=floorf(preview.y+0.5f)+0.5f;preview.z=floorf(preview.z+0.5f);
+  BwVec3 preview=bw_editor_block_preview(g,cam);
   const BwPlayer *ep=&g->players[slot];
   if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);  else if(ep->hotbar_page==2)wire_box(preview,v3(.25f,.25f,.25f),ep->selected_item==0?D3DCOLOR_ARGB(255,220,190,80):(ep->selected_item==1?D3DCOLOR_ARGB(255,80,190,230):(ep->selected_item==2?D3DCOLOR_ARGB(255,190,120,230):(ep->selected_item==3?D3DCOLOR_ARGB(255,230,100,70):D3DCOLOR_ARGB(255,145,220,245)))));
   else if(ep->selected_item==0){BwBlock spike(preview,0.5f,D3DCOLOR_ARGB(255,190,65,65));spike.spike=true;spike_mesh(&spike);}
