@@ -87,7 +87,7 @@ static void controls_menu(const BwGame *g){int owner=0;for(int oi=0;oi<BW_MAX_PL
  menu_n=0;DWORD white=D3DCOLOR_ARGB(255,235,242,250),muted=D3DCOLOR_ARGB(255,150,175,200),panel=D3DCOLOR_ARGB(255,12,20,32),accent=D3DCOLOR_ARGB(255,55,135,205),selected=D3DCOLOR_ARGB(255,28,65,98);
  menu_rect(145,55,990,610,panel);menu_rect(170,90,940,5,accent);menu_text(190,110,"BLOCKWORKS CONTROLS / SETTINGS",4,white);
  const char *labels[15]={"RESUME","MODE","AUTO DISTANCE","RENDER DISTANCE","MOVE SPEED","JUMP HEIGHT","GRAVITY","SPAWN X","SPAWN Y","SPAWN Z","SET SPAWN HERE","SAVE GAME","LOAD GAME","BOX GRAVITY","BOX FRICTION"};
- for(int i=0;i<15;++i){float y=160+i*30;if(mp->menu_selection==i)menu_rect(180,y-4,560,26,selected);menu_text(195,y,labels[i],2,g->menu_selection==i?white:muted);char value[12];value[0]=0;if(i==1)strcpy(value,mp->editor_mode?"EDITOR":"PLAYER");else if(i==2)strcpy(value,g->automatic_render_distance?"ON":"OFF");else if(i==3){int n=(int)g->render_distance;value[0]=(char)('0'+(n/1000)%10);value[1]=(char)('0'+(n/100)%10);value[2]=(char)('0'+(n/10)%10);value[3]=(char)('0'+n%10);value[4]=0;}else if(i==4)format_tenths(g->player_speed,value);else if(i==5)format_tenths(g->jump_height,value);else if(i==6)format_tenths(g->gravity,value);else if(i==13)format_tenths(g->physics_gravity,value);else if(i==14)format_tenths(g->physics_friction,value);else if(i>=7&&i<=9)format_signed_tenths(i==7?g->spawn_point.x:(i==8?g->spawn_point.y:g->spawn_point.z),value);else if(i==11)strcpy(value,g->save_status==1?"SAVED":(g->save_status==-1?"FAILED":"HDD1"));else if(i==12)strcpy(value,g->save_status==2?"LOADED":(g->save_status==-2?"FAILED":"HDD1"));if(value[0])menu_text(500,y,value,2,white);}
+ for(int i=0;i<15;++i){float y=160+i*30;if(mp->menu_selection==i)menu_rect(180,y-4,560,26,selected);menu_text(195,y,labels[i],2,mp->menu_selection==i?white:muted);char value[12];value[0]=0;if(i==1)strcpy(value,mp->editor_mode?"EDITOR":"PLAYER");else if(i==2)strcpy(value,g->automatic_render_distance?"ON":"OFF");else if(i==3){int n=(int)g->render_distance;value[0]=(char)('0'+(n/1000)%10);value[1]=(char)('0'+(n/100)%10);value[2]=(char)('0'+(n/10)%10);value[3]=(char)('0'+n%10);value[4]=0;}else if(i==4)format_tenths(g->player_speed,value);else if(i==5)format_tenths(g->jump_height,value);else if(i==6)format_tenths(g->gravity,value);else if(i==13)format_tenths(g->physics_gravity,value);else if(i==14)format_tenths(g->physics_friction,value);else if(i>=7&&i<=9)format_signed_tenths(i==7?g->spawn_point.x:(i==8?g->spawn_point.y:g->spawn_point.z),value);else if(i==11)strcpy(value,g->save_status==1?"SAVED":(g->save_status==-1?"FAILED":"HDD1"));else if(i==12)strcpy(value,g->save_status==2?"LOADED":(g->save_status==-2?"FAILED":"HDD1"));if(value[0])menu_text(500,y,value,2,white);}
  menu_text(790,175,"START / B: CLOSE MENU",2,accent);menu_text(790,200,"DPAD UP/DOWN: SELECT",2,white);menu_text(790,225,"LEFT/RIGHT: ADJUST",2,white);menu_text(790,250,"A: CONFIRM",2,white);menu_text(790,295,"PLAYER: LS MOVE / RS LOOK",2,accent);menu_text(790,320,"A JUMP  X ATTACK",2,white);menu_text(790,345,"LB/RB WEAPON  BACK MODE",2,white);menu_text(790,385,"EDITOR: LS MOVE / RS LOOK",2,accent);menu_text(790,410,"LT PLACE  RT BREAK",2,white);menu_text(790,435,"DPAD UP/DOWN FLY",2,white);menu_text(790,460,"Y PHYSICS GUN  L3 PAGE",2,white);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;dev->SetViewport(&full);dev->SetRenderState(D3DRS_ZENABLE,FALSE);dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);dev->SetRenderState(D3DRS_ZENABLE,TRUE);
 }
@@ -213,7 +213,7 @@ static void scene(const BwGame *g,int slot,int detail){
  BwVec3 flag_base(g->spawn_point.x,0.02f,g->spawn_point.z);
  line(flag_base,v3(flag_base.x,2.5f,flag_base.z),D3DCOLOR_ARGB(255,220,220,225));
  quad(v3(flag_base.x,2.35f,flag_base.z),v3(flag_base.x+0.85f,2.15f,flag_base.z),v3(flag_base.x+0.85f,1.65f,flag_base.z),v3(flag_base.x,1.85f,flag_base.z),D3DCOLOR_ARGB(255,220,55,55));
- if(!g->editor_mode){
+ if(!cam->editor_mode){
   float cp=cosf(cam->pitch),fx=sinf(cam->yaw)*cp,fy=sinf(cam->pitch),fz=cosf(cam->yaw)*cp;
   float sx=cosf(cam->yaw),sz=-sinf(cam->yaw);
   BwVec3 hand=v3(cam->position.x+fx*.48f+sx*.24f,cam->position.y+fy*.48f-.24f,cam->position.z+fz*.48f+sz*.24f);
@@ -221,7 +221,7 @@ static void scene(const BwGame *g,int slot,int detail){
   if(cam->selected_weapon==2&&cam->has_sword){BwVec3 tip=v3(hand.x+fx*(.72f+sinf(swing*3.14159f)*.35f),hand.y+fy*.72f+cosf(swing*3.14159f)*.22f,hand.z+fz*(.72f+sinf(swing*3.14159f)*.35f));line(hand,tip,D3DCOLOR_ARGB(255,205,215,225));line(v3(hand.x-sx*.09f,hand.y,hand.z-sz*.09f),v3(hand.x+sx*.09f,hand.y,hand.z+sz*.09f),D3DCOLOR_ARGB(255,125,75,40));}
   else if(cam->selected_weapon==1&&cam->has_blaster){float recoil=cam->weapon_anim>0.0f?sinf(swing*3.14159f)*.18f:0.0f;BwVec3 gun=v3(hand.x-fx*recoil,hand.y-fy*recoil,hand.z-fz*recoil);box(gun,v3(.13f,.10f,.22f),D3DCOLOR_ARGB(255,65,75,90));line(v3(gun.x+fx*.20f,gun.y,gun.z+fz*.20f),v3(gun.x+fx*.52f,gun.y,gun.z+fz*.52f),D3DCOLOR_ARGB(255,180,190,205));}
  }
- if(g->editor_mode){
+ if(cam->editor_mode){
   BwVec3 preview=bw_editor_block_preview(g,cam);
   const BwPlayer *ep=&g->players[slot];
   if(preview.y>-99999.0f){if(ep->hotbar_page==0)wire_box(preview,v3(.5f,.5f,.5f),bw_slot_colors[ep->selected_slot]);  else if(ep->hotbar_page==2)wire_box(preview,v3(.25f,.25f,.25f),ep->selected_item==0?D3DCOLOR_ARGB(255,220,190,80):(ep->selected_item==1?D3DCOLOR_ARGB(255,80,190,230):(ep->selected_item==2?D3DCOLOR_ARGB(255,190,120,230):(ep->selected_item==3?D3DCOLOR_ARGB(255,230,100,70):D3DCOLOR_ARGB(255,145,220,245)))));
@@ -272,7 +272,7 @@ static void hud(const BwGame *g,int slot,View vp){
  Vtx v[256];int n=0;
  float s=1.0f,w=34*s,h=30*s,gap=4*s;
  float total=8*w+7*gap,start=vp.x+(vp.w-total)*.5f,y=vp.y+vp.h-h-18*s;
- DWORD mode=g->editor_mode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
+ DWORD mode=p->editor_mode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
  const BwPlayer *p=&g->players[slot];
  static const char *item_names[8]={"SPIKE","BLAST","SWORD","FLAG","FRIEND","SWORD","GUN","CRATE"};static const char *tool_names[8]={"GLUE","ROPE","HINGE","MOTOR","ICE","CRATE","",""};
  for(int i=0;i<8;++i){float x=start+i*(w+gap);bool active=p->hotbar_page==0?(i==p->selected_slot):(i==p->selected_item);hudrect(v,&n,x,y,w,h,active?mode:D3DCOLOR_ARGB(255,125,135,150));if(p->hotbar_page==0)hudrect(v,&n,x+9*s,y+8*s,16*s,14*s,bw_slot_colors[i]);}
@@ -282,7 +282,7 @@ static void hud(const BwGame *g,int slot,View vp){
  dev->SetRenderState(D3DRS_ZWRITEENABLE,FALSE);
  if(n)dev->DrawPrimitiveUP(D3DPT_LINELIST,n/2,v,sizeof(Vtx));
  menu_n=0;if(p->hotbar_page){static const char *short_names[8]={"SPK","BLS","SWD","FLG","FRI","ENM","GUN","BOX"};static const char *tool_short[8]={"GLU","ROP","HNG","MTR","ICE","BOX","",""};for(int i=0;i<8;++i)menu_text(start+i*(w+gap)+8.0f,y+10.0f,p->hotbar_page==2?tool_short[i]:short_names[i],1,p->selected_item==i?D3DCOLOR_ARGB(255,255,240,150):D3DCOLOR_ARGB(255,190,205,220));}const char *nm=p->hotbar_page==2?tool_names[p->selected_item]:(p->hotbar_page==1?item_names[p->selected_item]:(g->editor_mode?"BLOCK COLORS":(p->selected_weapon==0?"EMPTY":(p->selected_weapon==1?"BLASTER":(p->selected_weapon==2?"SWORD":"ITEM")))));menu_text(vp.x+18.0f,vp.y+18.0f,nm,2,D3DCOLOR_ARGB(255,255,230,150));
- if(!g->editor_mode&&(p->selected_weapon==1||p->selected_weapon==2)){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
+ if(!p->editor_mode&&(p->selected_weapon==1||p->selected_weapon==2)){int d=(int)(p->selected_weapon==1?p->blaster_durability:p->sword_durability);char digits[4];digits[0]=(char)('0'+(d/100)%10);digits[1]=(char)('0'+(d/10)%10);digits[2]=(char)('0'+d%10);digits[3]=0;menu_text(vp.x+18.0f,vp.y+36.0f,digits,2,D3DCOLOR_ARGB(255,230,230,230));}
  if(menu_n)dev->DrawPrimitiveUP(D3DPT_TRIANGLELIST,menu_n/3,menu_v,sizeof(Vtx));
  dev->SetRenderState(D3DRS_ZWRITEENABLE,TRUE);
  dev->SetRenderState(D3DRS_ZENABLE,TRUE);
