@@ -1,6 +1,6 @@
 #include "game/game.h"
 #include <math.h>
-static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;p->grabbed_prop=-1;p->grab_distance=5.0f;}
+static void reset_player(BwPlayer *p,int i,bool editor){p->editor_mode=editor;p->menu_open=false;p->menu_selection=0;p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;p->grabbed_prop=-1;p->grab_distance=5.0f;}
 static bool editor_raycast_block(const BwGame *g,const BwPlayer *p,int *hit_index,BwVec3 *hit_normal,float *hit_distance)
 {
  float cp=cosf(p->pitch);
@@ -56,13 +56,13 @@ static int editor_pick_prop(const BwGame *g,const BwPlayer *p){float cp=cosf(p->
 static void editor_use_physics_tool(BwGame *g,BwPlayer *p,int tool){int target=editor_pick_prop(g,p);if(target<0)return;if(g->link_anchor_prop<0||g->link_anchor_prop>=g->prop_count||!g->props[g->link_anchor_prop].active||g->link_anchor_tool!=tool){g->link_anchor_prop=target;g->link_anchor_tool=tool;return;}if(target==g->link_anchor_prop||g->link_count>=BW_MAX_LINKS)return;BwVec3 a=g->props[g->link_anchor_prop].position,b=g->props[target].position;float x=b.x-a.x,y=b.y-a.y,z=b.z-a.z;BwLink *l=&g->links[g->link_count++];l->a=g->link_anchor_prop;l->b=target;l->type=tool;l->rest_length=sqrtf(x*x+y*y+z*z);l->phase=0;l->active=true;g->link_anchor_prop=-1;g->link_anchor_tool=-1;}
 static void update_one(BwGame *g,int i,float dt)
 {
- BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
+ BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=p->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
  
- if(g->editor_mode){if(pad->pressed_lb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+7)%8;else p->selected_item=(p->selected_item+7)%8;}if(pad->pressed_rb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+1)%8;else p->selected_item=(p->selected_item+1)%8;}}
+ if(p->editor_mode){if(pad->pressed_lb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+7)%8;else p->selected_item=(p->selected_item+7)%8;}if(pad->pressed_rb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+1)%8;else p->selected_item=(p->selected_item+1)%8;}}
  else{if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+4)%5;if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%5;}
- if(g->editor_mode){
+ if(p->editor_mode){
   bool physics_gun=(pad->current.wButtons&XINPUT_GAMEPAD_Y)!=0;
   if(physics_gun){
    if(p->grabbed_prop<0||p->grabbed_prop>=g->prop_count||!g->props[p->grabbed_prop].active){
@@ -81,15 +81,22 @@ static void update_one(BwGame *g,int i,float dt)
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch+pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
- if(g->editor_mode){
+ if(p->editor_mode){
   p->position.x+=dx;p->position.z+=dz;
   if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_UP)p->position.y+=speed*dt;
   if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_DOWN)p->position.y-=speed*dt;
-  bool place_pressed=pad->lt>0.5f&&pad->current.bLeftTrigger>128&&pad->previous.bLeftTrigger<=128;
+  bool place_pressed=pad->lt>0.5f;
   if(pad->pressed_a&&p->hotbar_page==2&&p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);
   if(place_pressed){
-   if(p->hotbar_page==2){if(p->selected_item==4||p->selected_item==5){BwVec3 q;if(editor_block_target(g,p,&q)){if(p->selected_item==4){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}}
-   else{BwVec3 q;if(editor_block_target(g,p,&q)){if(p->hotbar_page==0)bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);else if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}
+   BwVec3 q;if(editor_block_target(g,p,&q)){
+    bool occupied=false;for(int bi=0;bi<g->block_count;++bi){const BwBlock *v=&g->blocks[bi];if(v->color&&fabsf(v->position.x-q.x)<0.01f&&fabsf(v->position.y-q.y)<0.01f&&fabsf(v->position.z-q.z)<0.01f)occupied=true;}
+    if(!occupied){
+     if(p->hotbar_page==0&&g->block_count<BW_MAX_BLOCKS)bw_world_add_block(g,q,.5f,bw_slot_colors[p->selected_slot]);
+     else if(p->hotbar_page==1){if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}
+     else if(p->hotbar_page==2&&p->selected_item==4&&g->block_count<BW_MAX_BLOCKS){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}
+     else if(p->hotbar_page==2&&p->selected_item==5)bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));
+    }
+   }
   }
   if(pad->rt>0.5f&&pad->current.bRightTrigger>128&&pad->previous.bRightTrigger<=128){
    int hit=-1;float distance=0.0f;BwVec3 normal;
@@ -209,8 +216,8 @@ static void update_props(BwGame *g,float dt)
  }
 }
 
-static void update_projectiles(BwGame *g,float dt){for(int q=0;q<64;++q){BwProjectile *s=&g->projectiles[q];if(!s->active)continue;s->life-=dt;if(s->life<=0){s->active=false;continue;}s->position.x+=s->velocity.x*dt;s->position.y+=s->velocity.y*dt;s->position.z+=s->velocity.z*dt;bool hit=false;for(int b=0;b<g->block_count&&!hit;++b){const BwBlock *v=&g->blocks[b];if(v->color&&s->position.x>v->position.x-v->half&&s->position.x<v->position.x+v->half&&s->position.y>v->position.y-v->half&&s->position.y<v->position.y+v->half&&s->position.z>v->position.z-v->half&&s->position.z<v->position.z+v->half)hit=true;}if(!s->npc_owned&&!hit)for(int n=0;n<g->npc_count&&!hit;++n){BwNpc *a=&g->npcs[n];if(a->active&&fabsf(s->position.x-a->position.x)<.5f&&fabsf(s->position.y-a->position.y-.8f)<1&&fabsf(s->position.z-a->position.z)<.5f){a->active=false;hit=true;}}if(hit)s->active=false;}}
-void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected)update_one(g,i,dt);update_npcs(g,dt);update_props(g,dt);update_projectiles(g,dt);}
+static void update_projectiles(BwGame *g,float dt){for(int q=0;q<64;++q){BwProjectile *s=&g->projectiles[q];if(!s->active)continue;s->life-=dt;if(s->life<=0){s->active=false;continue;}s->position.x+=s->velocity.x*dt;s->position.y+=s->velocity.y*dt;s->position.z+=s->velocity.z*dt;bool hit=false;for(int b=0;b<g->block_count&&!hit;++b){const BwBlock *v=&g->blocks[b];if(v->color&&s->position.x>v->position.x-v->half&&s->position.x<v->position.x+v->half&&s->position.y>v->position.y-v->half&&s->position.y<v->position.y+v->half&&s->position.z>v->position.z-v->half&&s->position.z<v->position.z+v->half)hit=true;}if(!s->npc_owned&&!hit){for(int pi=0;pi<g->player_count&&!hit;++pi){int slot=g->active_slots[pi];if(slot==s->owner)continue;BwPlayer *target=&g->players[slot];float feet=target->position.y-BW_EYE_HEIGHT;if(fabsf(s->position.x-target->position.x)<BW_PLAYER_RADIUS+.12f&&s->position.y>feet&&s->position.y<feet+BW_PLAYER_HEIGHT&&fabsf(s->position.z-target->position.z)<BW_PLAYER_RADIUS+.12f){target->position=g->spawn_point;target->vertical_velocity=0;target->grounded=true;target->died_event=true;hit=true;}}}if(!s->npc_owned&&!hit)for(int n=0;n<g->npc_count&&!hit;++n){BwNpc *a=&g->npcs[n];if(a->active&&fabsf(s->position.x-a->position.x)<.5f&&fabsf(s->position.y-a->position.y-.8f)<1&&fabsf(s->position.z-a->position.z)<.5f){a->active=false;hit=true;}}if(hit)s->active=false;}}
+void bw_players_update(BwGame *g,float dt){for(int i=0;i<BW_MAX_PLAYERS;++i)if(g->pads[i].joined&&g->pads[i].connected&&!g->players[i].menu_open)update_one(g,i,dt);update_npcs(g,dt);update_props(g,dt);update_projectiles(g,dt);}
 float bw_clamp(float v,float lo,float hi){return v<lo?lo:(v>hi?hi:v);}
 void bw_quality_update(BwGame *g,float seconds){if(seconds<=0.0f)return;float fps=1.0f/seconds;g->fps_average=g->fps_average*0.90f+fps*0.10f;if(g->fps_average<48.0f&&g->quality_scale>0.55f)g->quality_scale-=0.05f;else if(g->fps_average>57.0f&&g->quality_scale<1.0f)g->quality_scale+=0.025f;g->quality_scale=bw_clamp(g->quality_scale,0.55f,1.0f);}
 
