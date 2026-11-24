@@ -82,9 +82,13 @@ static void update_one(BwGame *g,int i,float dt)
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
-  p->position.x+=dx;p->position.z+=dz;p->position.y-=pad->lt*speed*dt;
-  if(pad->pressed_a){
-   if(p->hotbar_page==2){if(p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);else{BwVec3 q;if(editor_block_target(g,p,&q)){if(p->selected_item==4){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}else if(p->selected_item==5)bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}}
+  p->position.x+=dx;p->position.z+=dz;
+  if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_UP)p->position.y+=speed*dt;
+  if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_DOWN)p->position.y-=speed*dt;
+  bool place_pressed=pad->lt>0.5f&&pad->current.bLeftTrigger>128&&pad->previous.bLeftTrigger<=128;
+  if(pad->pressed_a&&p->hotbar_page==2&&p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);
+  if(place_pressed){
+   if(p->hotbar_page==2){if(p->selected_item==4||p->selected_item==5){BwVec3 q;if(editor_block_target(g,p,&q)){if(p->selected_item==4){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}}
    else{BwVec3 q;if(editor_block_target(g,p,&q)){if(p->hotbar_page==0)bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);else if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}
   }
   if(pad->rt>0.5f&&pad->current.bRightTrigger>128&&pad->previous.bRightTrigger<=128){
