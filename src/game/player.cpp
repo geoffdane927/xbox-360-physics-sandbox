@@ -1,31 +1,46 @@
 #include "game/game.h"
 #include <math.h>
 static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;p->grabbed_prop=-1;p->grab_distance=5.0f;}
+static bool editor_raycast_block(const BwGame *g,const BwPlayer *p,int *hit_index,BwVec3 *hit_normal,float *hit_distance)
+{
+ float cp=cosf(p->pitch);
+ float dx=sinf(p->yaw)*cp,dy=sinf(p->pitch),dz=cosf(p->yaw)*cp;
+ float best=10.0f;int hit=-1;BwVec3 normal(0,0,0);
+ for(int i=0;i<g->block_count;++i){
+  const BwBlock *b=&g->blocks[i];if(b->color==0)continue;
+  float enter=0.0f,leave=best;BwVec3 n(0,0,0);bool valid=true;
+  float origins[3]={p->position.x,p->position.y,p->position.z};
+  float dirs[3]={dx,dy,dz};
+  float mins[3]={b->position.x-b->half,b->position.y-b->half,b->position.z-b->half};
+  float maxs[3]={b->position.x+b->half,b->position.y+b->half,b->position.z+b->half};
+  for(int axis=0;axis<3;++axis){
+   if(fabsf(dirs[axis])<0.00001f){if(origins[axis]<mins[axis]||origins[axis]>maxs[axis])valid=false;continue;}
+   float t1=(mins[axis]-origins[axis])/dirs[axis];
+   float t2=(maxs[axis]-origins[axis])/dirs[axis];
+   float near_t=t1,far_t=t2,sign=dirs[axis]>0.0f?-1.0f:1.0f;
+   if(near_t>far_t){float temp=near_t;near_t=far_t;far_t=temp;}
+   if(near_t>enter){enter=near_t;n=BwVec3(0,0,0);if(axis==0)n.x=sign;else if(axis==1)n.y=sign;else n.z=sign;}
+   if(far_t<leave)leave=far_t;
+   if(enter>leave){valid=false;break;}
+  }
+  if(valid&&leave>=0.0f&&enter<=best&&enter>=0.0f){best=enter;hit=i;normal=n;}
+ }
+ if(hit<0)return false;
+ *hit_index=hit;*hit_normal=normal;*hit_distance=best;return true;
+}
+static bool editor_block_target(const BwGame *g,const BwPlayer *p,BwVec3 *target)
+{
+ int hit=-1;float distance=0.0f;BwVec3 normal;
+ if(!editor_raycast_block(g,p,&hit,&normal,&distance))return false;
+ const BwBlock *b=&g->blocks[hit];
+ *target=BwVec3(b->position.x+normal.x,b->position.y+normal.y,b->position.z+normal.z);
+ return true;
+}
 BwVec3 bw_editor_block_preview(const BwGame *g,const BwPlayer *p)
 {
- float fx=sinf(p->yaw),fz=cosf(p->yaw);
- BwVec3 q(p->position.x+fx*2.0f,p->position.y-0.5f,p->position.z+fz*2.0f);
- q.x=floorf(q.x+0.5f);q.y=floorf(q.y+0.5f)+0.5f;q.z=floorf(q.z+0.5f);
- float best=4.0f;int hit=-1,face=0;
- for(int i=0;i<g->block_count;++i){
-  const BwBlock *b=&g->blocks[i];if(b->color==0||b->spike)continue;
-  if(fabsf(b->position.y-q.y)>0.75f)continue;
-  float tx0=-100000.0f,tx1=100000.0f,tz0=-100000.0f,tz1=100000.0f;
-  if(fabsf(fx)>0.0001f){tx0=(b->position.x-b->half-p->position.x)/fx;tx1=(b->position.x+b->half-p->position.x)/fx;if(tx0>tx1){float t=tx0;tx0=tx1;tx1=t;}}
-  else if(p->position.x<b->position.x-b->half||p->position.x>b->position.x+b->half)continue;
-  if(fabsf(fz)>0.0001f){tz0=(b->position.z-b->half-p->position.z)/fz;tz1=(b->position.z+b->half-p->position.z)/fz;if(tz0>tz1){float t=tz0;tz0=tz1;tz1=t;}}
-  else if(p->position.z<b->position.z-b->half||p->position.z>b->position.z+b->half)continue;
-  float enter=tx0>tz0?tx0:tz0,leave=tx1<tz1?tx1:tz1;
-  if(leave<0.0f||enter>leave||enter<0.0f||enter>=best)continue;
-  best=enter;hit=i;face=(tx0>tz0)?1:2;
- }
- if(hit>=0){
-  const BwBlock *b=&g->blocks[hit];
-  q=b->position;
-  if(face==1)q.x+=(fx>0.0f?-1.0f:1.0f);
-  else q.z+=(fz>0.0f?-1.0f:1.0f);
- }
- return q;
+ BwVec3 target;
+ if(editor_block_target(g,p,&target))return target;
+ return BwVec3(0.0f,-100000.0f,0.0f);
 }
 static BwVec3 editor_place_position(const BwGame *g,const BwPlayer *p)
 {
@@ -67,9 +82,18 @@ static void update_one(BwGame *g,int i,float dt)
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);
  float dx=(fx*pad->ly+rx*pad->lx)*speed*dt,dz=(fz*pad->ly+rz*pad->lx)*speed*dt;
  if(g->editor_mode){
-  p->position.x+=dx;p->position.z+=dz;p->position.y+=(pad->rt-pad->lt)*speed*dt;
-  if(pad->pressed_a){if(p->hotbar_page==0){BwVec3 q=editor_place_position(g,p);bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);}
-   else{BwVec3 q=editor_place_position(g,p);if(p->hotbar_page==1){if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}else{if(p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);else if(p->selected_item==4){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}else if(p->selected_item==5)bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}}
+  p->position.x+=dx;p->position.z+=dz;p->position.y-=pad->lt*speed*dt;
+  if(pad->pressed_a){
+   if(p->hotbar_page==2){if(p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);else{BwVec3 q;if(editor_block_target(g,p,&q)){if(p->selected_item==4){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}else if(p->selected_item==5)bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}}
+   else{BwVec3 q;if(editor_block_target(g,p,&q)){if(p->hotbar_page==0)bw_world_add_block(g,q,0.5f,bw_slot_colors[p->selected_slot]);else if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,0.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}}
+  }
+  if(pad->rt>0.5f&&pad->current.bRightTrigger>128&&pad->previous.bRightTrigger<=128){
+   int hit=-1;float distance=0.0f;BwVec3 normal;
+   if(editor_raycast_block(g,p,&hit,&normal,&distance)){
+    for(int b=hit;b<g->block_count-1;++b)g->blocks[b]=g->blocks[b+1];
+    --g->block_count;
+   }
+  }
   if(pad->pressed_x){if(g->link_count>0)--g->link_count;else if(g->block_count>0)--g->block_count;else if(g->prop_count>0)g->props[g->prop_count-1].active=false;g->link_anchor_prop=-1;g->link_anchor_tool=-1;}if(pad->pressed_b)g->show_grid=!g->show_grid;
  }else{
   float feet=p->position.y-BW_EYE_HEIGHT;
