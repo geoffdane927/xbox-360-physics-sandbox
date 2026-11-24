@@ -1,6 +1,6 @@
 #include "game/game.h"
 #include <math.h>
-static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;}
+static void reset_player(BwPlayer *p,int i,bool editor){p->position=BwVec3((i-1.5f)*1.2f,editor?2.5f:BW_EYE_HEIGHT,-8.0f);p->yaw=p->pitch=p->vertical_velocity=0.0f;p->selected_slot=0;p->selected_weapon=0;p->has_sword=false;p->has_blaster=false;p->sword_durability=100.0f;p->blaster_durability=100.0f;p->weapon_anim=0.0f;p->grounded=true;p->was_grounded=true;p->died_event=false;p->hotbar_page=0;p->selected_item=0;p->grabbed_prop=-1;p->grab_distance=5.0f;}
 BwVec3 bw_editor_block_preview(const BwGame *g,const BwPlayer *p)
 {
  float fx=sinf(p->yaw),fz=cosf(p->yaw);
@@ -44,9 +44,24 @@ static void update_one(BwGame *g,int i,float dt)
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=g->editor_mode?8.0f:g->player_speed;
  if(pad->pressed_left)p->selected_slot=(p->selected_slot+BW_INVENTORY_SLOTS-1)%BW_INVENTORY_SLOTS;
  if(pad->pressed_right)p->selected_slot=(p->selected_slot+1)%BW_INVENTORY_SLOTS;
- if(g->editor_mode&&pad->pressed_lthumb)p->hotbar_page=(p->hotbar_page+1)%3;if(g->editor_mode&&pad->pressed_y)p->hotbar_page=(p->hotbar_page+1)%3;
+ if(g->editor_mode&&pad->pressed_lthumb)p->hotbar_page=(p->hotbar_page+1)%3;
  if(g->editor_mode){if(pad->pressed_lb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+7)%8;else p->selected_item=(p->selected_item+7)%8;}if(pad->pressed_rb){if(p->hotbar_page==0)p->selected_slot=(p->selected_slot+1)%8;else p->selected_item=(p->selected_item+1)%8;}}
  else{if(pad->pressed_lb)p->selected_weapon=(p->selected_weapon+4)%5;if(pad->pressed_rb)p->selected_weapon=(p->selected_weapon+1)%5;}
+ if(g->editor_mode){
+  bool physics_gun=(pad->current.wButtons&XINPUT_GAMEPAD_Y)!=0;
+  if(physics_gun){
+   if(p->grabbed_prop<0||p->grabbed_prop>=g->prop_count||!g->props[p->grabbed_prop].active){
+    p->grabbed_prop=editor_pick_prop(g,p);
+    if(p->grabbed_prop>=0){float dx=g->props[p->grabbed_prop].position.x-p->position.x,dy=g->props[p->grabbed_prop].position.y-p->position.y,dz=g->props[p->grabbed_prop].position.z-p->position.z;p->grab_distance=sqrtf(dx*dx+dy*dy+dz*dz);if(p->grab_distance<2.0f)p->grab_distance=2.0f;}
+   }
+   if(p->grabbed_prop>=0&&p->grabbed_prop<g->prop_count){
+    float cp=cosf(p->pitch),gx=sinf(p->yaw)*cp,gy=sinf(p->pitch),gz=cosf(p->yaw)*cp;
+    BwProp *held=&g->props[p->grabbed_prop];
+    held->position=BwVec3(p->position.x+gx*p->grab_distance,p->position.y+gy*p->grab_distance,p->position.z+gz*p->grab_distance);
+    held->previous_position=held->position;
+   }
+  }else p->grabbed_prop=-1;
+ }else p->grabbed_prop=-1;
  if(p->weapon_anim>0.0f)p->weapon_anim-=dt;
  p->yaw+=pad->rx*1.8f*dt;p->pitch=bw_clamp(p->pitch+pad->ry*1.8f*dt,-1.45f,1.45f);
  float fx=sinf(p->yaw),fz=cosf(p->yaw),rx=cosf(p->yaw),rz=-sinf(p->yaw);

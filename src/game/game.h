@@ -11,7 +11,7 @@
 #define BW_EYE_HEIGHT 1.55f
 struct BwVec3 { float x,y,z; BwVec3():x(0),y(0),z(0){} BwVec3(float X,float Y,float Z):x(X),y(Y),z(Z){} };
 struct BwBlock { BwVec3 position; float half,friction; DWORD color; bool spike,ice; BwBlock():half(0),friction(0.82f),color(0),spike(false),ice(false){} BwBlock(BwVec3 p,float h,DWORD c):position(p),half(h),friction(0.82f),color(c),spike(false),ice(false){} };
-struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; float sword_durability,blaster_durability,weapon_anim; bool has_sword,has_blaster,grounded,was_grounded,died_event; int hotbar_page,selected_item; };
+struct BwPlayer { BwVec3 position; float yaw,pitch,vertical_velocity; int selected_slot,selected_weapon; float sword_durability,blaster_durability,weapon_anim; bool has_sword,has_blaster,grounded,was_grounded,died_event; int hotbar_page,selected_item,grabbed_prop; float grab_distance; };
 struct BwPickup { BwVec3 position; int type; bool active; BwPickup():type(0),active(false){} };
 struct BwNpc { BwVec3 position,spawn_position; float yaw,cooldown,anim,vertical_velocity; int type; DWORD color; bool active,was_shot,was_falling; BwNpc():yaw(0),cooldown(0),anim(0),vertical_velocity(0),type(0),color(0),active(false),was_shot(false),was_falling(false){} };
 struct BwProp { BwVec3 position,spawn_position,velocity,previous_position; float half,mass,friction,gravity_scale; DWORD color; bool active,was_falling; BwProp():half(0.5f),mass(1.0f),friction(0.985f),gravity_scale(1.0f),color(0),active(false),was_falling(false){} };

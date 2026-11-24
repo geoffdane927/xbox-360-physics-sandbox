@@ -4,8 +4,9 @@ Native Xbox 360 sandbox/editor using the Xbox 360 XDK, Direct3D 9 and XInput.
 
 ## Controls
 - Start opens Pause. D-pad selects settings, left/right changes values, A confirms, B resumes.
-- Back switches Editor/Player mode. Y cycles the three editor hotbar pages and no longer exits the game.
-- In Editor mode, left-stick click switches hotbar pages; LB/RB selects items; A places; X removes the last block.
+- Back switches Editor/Player mode.
+- In Editor mode, left-stick click (L3) cycles the three hotbar pages; LB/RB selects items; A places; X removes the last block.
+- Hold Y to use the physics gun: aim at a crate to grab it, move/look to reposition it, and release Y to drop it.
 - The rule-based scripting system and object script editor have been removed.
 
 ## Current physics
