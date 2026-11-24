@@ -311,11 +311,7 @@ bool bw_renderer_open(void){
 
 void bw_renderer_draw(const BwGame *g){
  if(!dev)return;
- bool menu_visible=false;for(int mi=0;mi<BW_MAX_PLAYERS;++mi)if(g->players[mi].menu_open)menu_visible=true;if(menu_visible){
-  dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,8,13,22),1.0f,0);
-  if(SUCCEEDED(dev->BeginScene())){controls_menu(g);dev->EndScene();dev->Present(0,0,0,0);}
-  return;
- }
+ bool menu_visible=false;for(int mi=0;mi<BW_MAX_PLAYERS;++mi)if(g->players[mi].menu_open)menu_visible=true;
  int detail=g->quality_scale>.85f?1:(g->quality_scale>.70f?2:3);
  dev->Clear(0,0,D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER,D3DCOLOR_ARGB(255,16,22,32),1.0f,0);
  if(FAILED(dev->BeginScene()))return;
@@ -339,6 +335,7 @@ void bw_renderer_draw(const BwGame *g){
   if(nl)dev->DrawPrimitiveUP(D3DPT_LINELIST,nl/2,lines,sizeof(Vtx));
   hud(g,slot,vp);
  }
+ if(menu_visible)controls_menu(g);
  dev->EndScene();
  dev->Present(0,0,0,0);
 }
