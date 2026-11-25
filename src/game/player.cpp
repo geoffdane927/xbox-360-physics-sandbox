@@ -102,7 +102,6 @@ static void update_one(BwGame *g,int i,float dt)
      else if(p->hotbar_page==2&&p->selected_item==5)bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));
     }
    }
-  }
   if(pad->rt>0.5f&&pad->current.bRightTrigger>128&&pad->previous.bRightTrigger<=128){
    int hit=-1;float distance=0.0f;BwVec3 normal;
    if(editor_raycast_block(g,p,&hit,&normal,&distance)){
