@@ -36,15 +36,17 @@ static bool editor_block_target(const BwGame *g,const BwPlayer *p,BwVec3 *target
  *target=BwVec3(b->position.x+normal.x,b->position.y+normal.y,b->position.z+normal.z);
  return true;
 }
-BwVec3 bw_editor_block_preview(const BwGame *g,const BwPlayer *p)
-{
- BwVec3 target;
- if(editor_block_target(g,p,&target))return target;
- return BwVec3(0.0f,-100000.0f,0.0f);
-}
 static BwVec3 editor_place_position(const BwGame *g,const BwPlayer *p)
 {
- return bw_editor_block_preview(g,p);
+ float fx=sinf(p->yaw),fz=cosf(p->yaw);
+ BwVec3 pos(p->position.x+fx*3.0f,0.5f,p->position.z+fz*3.0f);
+ pos.x=floorf(pos.x+0.5f);
+ pos.z=floorf(pos.z+0.5f);
+ return pos;
+}
+BwVec3 bw_editor_block_preview(const BwGame *g,const BwPlayer *p)
+{
+ return editor_place_position(g,p);
 }
 static void place_block(BwGame *g,BwPlayer *p)
 {
@@ -88,9 +90,12 @@ static void update_one(BwGame *g,int i,float dt)
   bool place_pressed=pad->lt>0.5f;
   if(pad->pressed_a&&p->hotbar_page==2&&p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);
   if(place_pressed){
-   BwVec3 q;if(editor_block_target(g,p,&q)){
-    bool occupied=false;for(int bi=0;bi<g->block_count;++bi){const BwBlock *v=&g->blocks[bi];if(v->color&&fabsf(v->position.x-q.x)<0.01f&&fabsf(v->position.y-q.y)<0.01f&&fabsf(v->position.z-q.z)<0.01f)occupied=true;}
-    if(!occupied){
+   BwVec3 q=editor_place_position(g,p);
+   bool occupied=false;
+   BwBlock candidate(q,0.5f,0);
+   if(bw_player_overlaps_block(p->position.x,p->position.y-BW_EYE_HEIGHT,p->position.z,&candidate))occupied=true;
+   for(int bi=0;bi<g->block_count;++bi){const BwBlock *v=&g->blocks[bi];if(v->color&&fabsf(v->position.x-q.x)<0.01f&&fabsf(v->position.y-q.y)<0.01f&&fabsf(v->position.z-q.z)<0.01f)occupied=true;}
+   if(!occupied){
      if(p->hotbar_page==0&&g->block_count<BW_MAX_BLOCKS)bw_world_add_block(g,q,.5f,bw_slot_colors[p->selected_slot]);
      else if(p->hotbar_page==1){if(p->selected_item==0)bw_world_add_spike(g,q);else if(p->selected_item==1)bw_world_add_pickup(g,BwVec3(q.x,.6f,q.z),1);else if(p->selected_item==2)bw_world_add_pickup(g,BwVec3(q.x,.6f,q.z),2);else if(p->selected_item==3)g->spawn_point=BwVec3(q.x,BW_EYE_HEIGHT,q.z);else if(p->selected_item==4)bw_world_add_npc(g,BwVec3(q.x,0,q.z),0);else if(p->selected_item==5)bw_world_add_npc(g,BwVec3(q.x,0,q.z),1);else if(p->selected_item==6)bw_world_add_npc(g,BwVec3(q.x,0,q.z),2);else bw_world_add_prop(g,BwVec3(q.x,q.y,q.z));}
      else if(p->hotbar_page==2&&p->selected_item==4&&g->block_count<BW_MAX_BLOCKS){bw_world_add_block(g,q,.5f,D3DCOLOR_ARGB(255,145,220,245));if(g->block_count>0){g->blocks[g->block_count-1].ice=true;g->blocks[g->block_count-1].friction=.03f;}}
