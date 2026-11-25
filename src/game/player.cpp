@@ -87,7 +87,7 @@ static void update_one(BwGame *g,int i,float dt)
   p->position.x+=dx;p->position.z+=dz;
   if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_UP)p->position.y+=speed*dt;
   if(pad->current.wButtons&XINPUT_GAMEPAD_DPAD_DOWN)p->position.y-=speed*dt;
-  bool place_pressed=pad->lt>0.5f;
+  bool place_pressed=pad->current.bLeftTrigger>128&&pad->previous.bLeftTrigger<=128;
   if(pad->pressed_a&&p->hotbar_page==2&&p->selected_item<=3)editor_use_physics_tool(g,p,p->selected_item);
   if(place_pressed){
    BwVec3 q=editor_place_position(g,p);
