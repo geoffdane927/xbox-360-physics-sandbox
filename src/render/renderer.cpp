@@ -276,6 +276,12 @@ static void hud(const BwGame *g,int slot,View vp){
  DWORD mode=p->editor_mode?D3DCOLOR_ARGB(255,235,165,65):D3DCOLOR_ARGB(255,90,190,255);
  static const char *item_names[8]={"SPIKE","BLAST","SWORD","FLAG","FRIEND","SWORD","GUN","CRATE"};static const char *tool_names[8]={"GLUE","ROPE","HINGE","MOTOR","ICE","CRATE","",""};
  for(int i=0;i<8;++i){float x=start+i*(w+gap);bool active=p->hotbar_page==0?(i==p->selected_slot):(i==p->selected_item);hudrect(v,&n,x,y,w,h,active?mode:D3DCOLOR_ARGB(255,125,135,150));if(p->hotbar_page==0)hudrect(v,&n,x+9*s,y+8*s,16*s,14*s,bw_slot_colors[i]);}
+ float cx=vp.x+vp.w*.5f,cy=vp.y+vp.h*.5f;
+ DWORD cross=D3DCOLOR_ARGB(255,245,245,245);
+ hudline(v,&n,cx-10.0f,cy,cx-3.0f,cy,cross);
+ hudline(v,&n,cx+3.0f,cy,cx+10.0f,cy,cross);
+ hudline(v,&n,cx,cy-10.0f,cx,cy-3.0f,cross);
+ hudline(v,&n,cx,cy+3.0f,cx,cy+10.0f,cross);
  D3DVIEWPORT9 full;full.X=0;full.Y=0;full.Width=SW;full.Height=SH;full.MinZ=0;full.MaxZ=1;
  dev->SetViewport(&full);
  dev->SetRenderState(D3DRS_ZENABLE,FALSE);

@@ -38,6 +38,11 @@ static bool editor_block_target(const BwGame *g,const BwPlayer *p,BwVec3 *target
 }
 static BwVec3 editor_place_position(const BwGame *g,const BwPlayer *p)
 {
+ int hit=-1;float distance=0.0f;BwVec3 normal;
+ if(editor_raycast_block(g,p,&hit,&normal,&distance)){
+  const BwBlock *b=&g->blocks[hit];
+  return BwVec3(b->position.x+normal.x,b->position.y+normal.y,b->position.z+normal.z);
+ }
  float fx=sinf(p->yaw),fz=cosf(p->yaw);
  BwVec3 pos(p->position.x+fx*3.0f,0.5f,p->position.z+fz*3.0f);
  pos.x=floorf(pos.x+0.5f);
@@ -54,8 +59,8 @@ static void place_block(BwGame *g,BwPlayer *p)
  pos.x=floorf(pos.x+0.5f);pos.z=floorf(pos.z+0.5f);BwBlock candidate(pos,0.5f,0);
  if(!bw_player_overlaps_block(p->position.x,p->position.y-BW_EYE_HEIGHT,p->position.z,&candidate))bw_world_add_block(g,pos,0.5f,bw_slot_colors[p->selected_slot]);
 }
-static int editor_pick_prop(const BwGame *g,const BwPlayer *p){float cp=cosf(p->pitch),dx=sinf(p->yaw)*cp,dy=sinf(p->pitch),dz=cosf(p->yaw)*cp,best=9999.0f;int found=-1;for(int i=0;i<g->prop_count;++i){const BwProp *o=&g->props[i];if(!o->active)continue;float vx=o->position.x-p->position.x,vy=o->position.y-p->position.y,vz=o->position.z-p->position.z,along=vx*dx+vy*dy+vz*dz;if(along<0||along>16||along>=best)continue;float ex=vx-dx*along,ey=vy-dy*along,ez=vz-dz*along;if(ex*ex+ey*ey+ez*ez<1){best=along;found=i;}}return found;}
-static void editor_use_physics_tool(BwGame *g,BwPlayer *p,int tool){int target=editor_pick_prop(g,p);if(target<0)return;if(g->link_anchor_prop<0||g->link_anchor_prop>=g->prop_count||!g->props[g->link_anchor_prop].active||g->link_anchor_tool!=tool){g->link_anchor_prop=target;g->link_anchor_tool=tool;return;}if(target==g->link_anchor_prop||g->link_count>=BW_MAX_LINKS)return;BwVec3 a=g->props[g->link_anchor_prop].position,b=g->props[target].position;float x=b.x-a.x,y=b.y-a.y,z=b.z-a.z;BwLink *l=&g->links[g->link_count++];l->a=g->link_anchor_prop;l->b=target;l->type=tool;l->rest_length=sqrtf(x*x+y*y+z*z);l->phase=0;l->active=true;g->link_anchor_prop=-1;g->link_anchor_tool=-1;}
+static int editor_pick_prop(const BwGame *g,const BwPlayer *p){float cp=cosf(p->pitch),dx=sinf(p->yaw)*cp,dy=sinf(p->pitch),dz=cosf(p->yaw)*cp,best=9999.0f;int found=-1;for(int i=0;i<g->prop_count;++i){const BwProp *o=&g->props[i];if(!o->active)continue;float vx=o->position.x-p->position.x,vy=o->position.y-p->position.y,vz=o->position.z-p->position.z,along=vx*dx+vy*dy+vz*dz;if(along<0||along>16||along>=best)continue;float ex=vx-dx*along,ey=vy-dy*along,ez=vz-dz*along;if(ex*ex+ey*ey+ez*ez<2.25f){best=along;found=i;}}return found;}
+static void editor_use_physics_tool(BwGame *g,BwPlayer *p,int tool){int target=editor_pick_prop(g,p);if(target<0)return;if(g->link_anchor_prop<0||g->link_anchor_prop>=g->prop_count||!g->props[g->link_anchor_prop].active||g->link_anchor_tool!=tool){g->link_anchor_prop=target;g->link_anchor_tool=tool;return;}if(target==g->link_anchor_prop||g->link_count>=BW_MAX_LINKS)return;BwVec3 a=g->props[g->link_anchor_prop].position,b=g->props[target].position;float x=b.x-a.x,y=b.y-a.y,z=b.z-a.z;BwLink *l=&g->links[g->link_count++];l->a=g->link_anchor_prop;l->b=target;l->type=tool;l->rest_length=sqrtf(x*x+y*y+z*z);l->phase=(float)atan2(z,x);l->active=true;g->link_anchor_prop=-1;g->link_anchor_tool=-1;}
 static void update_one(BwGame *g,int i,float dt)
 {
  BwPlayer *p=&g->players[i];BwPad *pad=&g->pads[i];float speed=p->editor_mode?8.0f:g->player_speed;
@@ -165,17 +170,38 @@ static void update_props(BwGame *g,float dt)
     BwLink *l=&g->links[k];
     if(!l->active||l->a<0||l->b<0||l->a>=g->prop_count||l->b>=g->prop_count)continue;
     BwProp *a=&g->props[l->a],*b=&g->props[l->b];if(!a->active||!b->active)continue;
-    if(l->type==3&&it==0)l->phase+=h*2.5f;
-    float target=l->rest_length+(l->type==3?sinf(l->phase)*.65f:0.0f);
     float dx=b->position.x-a->position.x,dy=b->position.y-a->position.y,dz=b->position.z-a->position.z;
+    if(l->type==3){
+     if(it==0)l->phase+=h*2.5f;
+     float tx=a->position.x+cosf(l->phase)*l->rest_length;
+     float ty=a->position.y;
+     float tz=a->position.z+sinf(l->phase)*l->rest_length;
+     float mx=tx-b->position.x,my=ty-b->position.y,mz=tz-b->position.z;
+     b->position.x=tx;b->position.y=ty;b->position.z=tz;
+     b->previous_position.x+=mx;b->previous_position.y+=my;b->previous_position.z+=mz;
+     continue;
+    }
+    if(l->type==2){
+     float d=sqrtf(dx*dx+dz*dz);
+     if(d<0.0001f)continue;
+     float correction=(d-l->rest_length)/d;
+     float cx=dx*correction,cz=dz*correction;
+     b->position.x-=cx;b->position.z-=cz;
+     b->previous_position.x-=cx;b->previous_position.z-=cz;
+     float cy=a->position.y-b->position.y;
+     b->position.y+=cy;b->previous_position.y+=cy;
+     continue;
+    }
     float d=sqrtf(dx*dx+dy*dy+dz*dz);
-    if(d<0.0001f||(l->type==1&&d<=target))continue;
+    if(d<0.0001f||(l->type==1&&d<=l->rest_length))continue;
     float wa=1.0f/bw_clamp(a->mass,0.1f,100.0f),wb=1.0f/bw_clamp(b->mass,0.1f,100.0f);
-    float stiffness=l->type==2?0.35f:1.0f;
-    float correction=((d-target)/d)*stiffness/(wa+wb);
+    float correction=((d-l->rest_length)/d)/(wa+wb);
     float cx=dx*correction,cy=dy*correction,cz=dz*correction;
-    a->position.x+=cx*wa;a->position.y+=cy*wa;a->position.z+=cz*wa;
-    b->position.x-=cx*wb;b->position.y-=cy*wb;b->position.z-=cz*wb;
+    float ax=cx*wa,ay=cy*wa,az=cz*wa,bx=-cx*wb,by=-cy*wb,bz=-cz*wb;
+    a->position.x+=ax;a->position.y+=ay;a->position.z+=az;
+    b->position.x+=bx;b->position.y+=by;b->position.z+=bz;
+    a->previous_position.x+=ax;a->previous_position.y+=ay;a->previous_position.z+=az;
+    b->previous_position.x+=bx;b->previous_position.y+=by;b->previous_position.z+=bz;
    }
    for(int i=0;i<g->prop_count;++i){
     BwProp *o=&g->props[i];if(!o->active)continue;
